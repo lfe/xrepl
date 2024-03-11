@@ -26,7 +26,7 @@ The xrepl project has as its primary mission:
 
 > To explore strange new LFE REPL use cases, to seek out new REPL features and new interactive development possibilities, to boldly go where LFE-proper hasn't gone. Yet.
 
-Anything good that comes out of this project that may be even remotely useful to LFE itself will result in a ticket and/or a PR against the LFE repository for Robert's reading pleasure and discression.
+Anything good that comes out of this project that may be even remotely useful to LFE itself will result in a ticket and/or a PR against the LFE repository for Robert's reading pleasure and discretionary approval.
 
 ## Build [&#x219F;](#table-of-contents)
 
@@ -52,9 +52,11 @@ TBD
 
 ## License [&#x219F;](#table-of-contents)
 
+``` text
 Apache License, Version 2.0
 
 Copyright © 2024, The LFE Community <http://lfe.io>.
+```
 
 [//]: ---Named-Links---
 
