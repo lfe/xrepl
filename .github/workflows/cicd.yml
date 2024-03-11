@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        otp_version: ['24', '25', '26']
+        otp_version: ['26', '25', '24']
 
     steps:
     - uses: actions/checkout@v4
@@ -38,12 +38,12 @@ jobs:
       run: rebar3 as test lfe ltest -tall
 
   older-builds:
-    name: Erlang ${{ matrix.otp_version }} build (old)
+    name: Erlang ${{ matrix.otp_version }} build
     runs-on: ubuntu-20.04
 
     strategy:
       matrix:
-        otp_version: ['21.3', '22.3', '23.3']
+        otp_version: ['23', '22', '21']
 
     steps:
     - uses: actions/checkout@v2
