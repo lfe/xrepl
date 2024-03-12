@@ -60,8 +60,8 @@ Copyright © 2024, The LFE Community <http://lfe.io>.
 
 [//]: ---Named-Links---
 
-[logo]: resources/images/project-art-large.jpg
-[logo-large]: resources/images/project-art-large.jpg
+[logo]: priv/images/logo-v1-x250.png
+[logo-large]: priv/images/logo-v1-x4800.png
 [github]: https://github.com/lfe/xrepl
 [gitlab]: https://gitlab.com/lfe/xrepl
 [gh-actions-badge]: https://github.com/lfe/xrepl/actions/workflows/cicd.yml/badge.svg
