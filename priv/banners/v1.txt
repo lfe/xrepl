@@ -1,0 +1,22 @@
+
+               ,;::;,,,,''.
+          ;lolllc:;,,,,,,,,,''.
+       'lxdl;''',,,,,,,,,,,,,,,,'.
+     'lOx:'.'''',,,,,,,,,,,,,,,;;,'.
+    ;OOc''''''''',,,',,',,,,,,,,,,,,'.
+   c0O;''''''''''',,,,,,,,,,,,,,,;;,,,.
+ .:0O,.''''''''''',,,,,,,,,,,,,,,,,,,,,.
+ 'xKc...''''...'.'',,,,,,',,,,,,,;;,,,,'.
+ ;Kk'',..';:;;;;:;:;,',,,,,,;;;;,;;;::,,.
+ cXx.;:...cocc:lo:c:,',coccccodolccloc;,. | xrepl: {{xrepl-version}}
+ :Xx.':;,,;;'',:l::;,',col:;;ldoooclol:;' | LFE: {{lfe-version}}
+ ,OO,........''''',''',,,,,,,;;;::;;;;;,  | Erlang: {{erlang-version}} 
+  oKl..........'''''''',,'',,,,,,,;;;;;'  |
+  'x0:......',,;:ccccccccc:::;,,;,,;;;,   | Sources: 
+   'dO:.',;:ccccllllllloodddddol:;,;;,    |   * http://github.com/lfe/xrepl
+     ckxlccccccccclllllllodddxOOkoc;'     |   * http://github.com/lfe/lfe       
+      'lxxocccccccclllllllodddkOOxc'      |
+        'coddolccccccclllllodool:'        | Get usage info with (help)
+           ';ccccccccccccc:;;,'           | Exit xrepl with (q) (quit)
+                 '''''''
+
