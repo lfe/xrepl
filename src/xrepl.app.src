@@ -1,6 +1,6 @@
 {application, 'xrepl', [
     {description, "An experimental, general purpose LFE REPL"},
-    {vsn, git},
+    {vsn, "0.1.0"},
     {registered, []},
     {mod, {'xrepl-app', []}},
     {applications, [
