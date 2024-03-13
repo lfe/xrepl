@@ -326,35 +326,36 @@ update_shell_vars(Form, Value, Env0) ->
 
 add_shell_functions(Env0) ->
     Fs = [
-          {cd,1,[lambda,[d],[':',lfe_shell,cd,d]]},
-          {ep,1,[lambda,[e],[':',lfe_shell,ep,e]]},
-          {ep,2,[lambda,[e,d],[':',lfe_shell,ep,e,d]]},
-          {epp,1,[lambda,[e],[':',lfe_shell,epp,e]]},
-          {epp,2,[lambda,[e,d],[':',lfe_shell,epp,e,d]]},
-          {h,0,[lambda,[],[':',lfe_shell,help]]},
-          {h,1,[lambda,[m], [':',lfe_shell,h,m]]},
-          {h,2,[lambda,[m,f], [':',lfe_shell,h,m,f]]},
-          {h,3,[lambda,[m,f,a], [':',lfe_shell,h,m,f,a]]},
+          {cd,1,[lambda,[d],[':',lfe_xrepl,cd,d]]},
+          {ep,1,[lambda,[e],[':',lfe_xrepl,ep,e]]},
+          {ep,2,[lambda,[e,d],[':',lfe_xrepl,ep,e,d]]},
+          {epp,1,[lambda,[e],[':',lfe_xrepl,epp,e]]},
+          {epp,2,[lambda,[e,d],[':',lfe_xrepl,epp,e,d]]},
+          {h,0,[lambda,[],[':',lfe_xrepl,help]]},
+          {h,1,[lambda,[m], [':',lfe_xrepl,h,m]]},
+          {h,2,[lambda,[m,f], [':',lfe_xrepl,h,m,f]]},
+          {h,3,[lambda,[m,f,a], [':',lfe_xrepl,h,m,f,a]]},
 
-          {help,0,[lambda,[],[':',lfe_shell,help]]},
-          {i,0,[lambda,[],[':',lfe_shell,i]]},
-          {i,1,[lambda,[ps],[':',lfe_shell,i,ps]]},
-          {i,3,[lambda,[x,y,z],[':',lfe_shell,i,x,y,z]]},
+          {help,0,[lambda,[],[':',lfe_xrepl,help]]},
+          {i,0,[lambda,[],[':',lfe_xrepl,i]]},
+          {i,1,[lambda,[ps],[':',lfe_xrepl,i,ps]]},
+          {i,3,[lambda,[x,y,z],[':',lfe_xrepl,i,x,y,z]]},
           {clear,0,[lambda,[],[':',lfe_shell,clear]]},
-          {pid,3,[lambda,[i,j,k],[':',lfe_shell,pid,i,j,k]]},
-          {p,1,[lambda,[e],[':',lfe_shell,p,e]]},
-          {p,2,[lambda,[e,d],[':',lfe_shell,p,e,d]]},
-          {pp,1,[lambda,[e],[':',lfe_shell,pp,e]]},
-          {pp,2,[lambda,[e,d],[':',lfe_shell,pp,e,d]]},
-          {pwd,0,[lambda,[],[':',lfe_shell,pwd]]},
-          {q,0,[lambda,[],[':',lfe_shell,exit]]},
-          {flush,0,[lambda,[],[':',lfe_shell,flush]]},
-          {regs,0,[lambda,[],[':',lfe_shell,regs]]},
-          {nregs,0,[lambda,[],[':',lfe_shell,nregs]]},
-          {memory,0,[lambda,[],[':',lfe_shell,memory]]},
-          {memory,1,[lambda,[t],[':',lfe_shell,memory,t]]},
-          {uptime,0,[lambda,[],[':',lfe_shell,uptime]]},
-          {exit,0,[lambda,[],[':',lfe_shell,exit]]}
+          {pid,3,[lambda,[i,j,k],[':',lfe_xrepl,pid,i,j,k]]},
+          {p,1,[lambda,[e],[':',lfe_xrepl,p,e]]},
+          {p,2,[lambda,[e,d],[':',lfe_xrepl,p,e,d]]},
+          {pp,1,[lambda,[e],[':',lfe_xrepl,pp,e]]},
+          {pp,2,[lambda,[e,d],[':',lfe_xrepl,pp,e,d]]},
+          {pwd,0,[lambda,[],[':',lfe_xrepl,pwd]]},
+          {q,0,[lambda,[],[':',lfe_xrepl,exit]]},
+          {quit,0,[lambda,[],[':',lfe_xrepl,exit]]},
+          {flush,0,[lambda,[],[':',lfe_xrepl,flush]]},
+          {regs,0,[lambda,[],[':',lfe_xrepl,regs]]},
+          {nregs,0,[lambda,[],[':',lfe_xrepl,nregs]]},
+          {memory,0,[lambda,[],[':',lfe_xrepl,memory]]},
+          {memory,1,[lambda,[t],[':',lfe_xrepl,memory,t]]},
+          {uptime,0,[lambda,[],[':',lfe_xrepl,uptime]]},
+          {exit,0,[lambda,[],[':',lfe_xrepl,exit]]}
          ],
     %% Any errors here will crash shell startup!
     Add = fun ({N,Ar,Def}, E) ->
@@ -1022,7 +1023,12 @@ pwd() -> c:pwd().
 
 %% q() -> ok.
 
-q() -> c:q().
+q() -> quit().
+
+quit() ->
+    io:put_chars(["\nSo long, and thanks for all the fish!\n\n"]),
+    c:q(),
+    42.
 
 %% flush() -> ok.
 
@@ -1038,7 +1044,7 @@ nregs() -> c:nregs().
 
 %% exit() -> ok.
 
-exit() -> c:q().
+exit() -> quit().
 
 %% memory() -> ok.
 
