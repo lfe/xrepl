@@ -12,8 +12,7 @@
 ##### Table of Contents
 
 * [About](#about-)
-* [Build](#build-)
-* [Start the Project REPL](#start-the-repl-)
+* [Dev Process](#dev-process-)
 * [Tests](#tests-)
 * [Usage](#usage-)
 * [License](#license-)
@@ -28,17 +27,26 @@ The xrepl project has as its primary mission:
 
 Anything good that comes out of this project that may be even remotely useful to LFE itself will result in a ticket and/or a PR against the LFE repository for Robert's reading pleasure and discretionary approval.
 
-## Build [&#x219F;](#table-of-contents)
+## Dev Process [&#x219F;](#table-of-contents)
 
-```shell
-$ rebar3 lfe compile
-```
+**HIC SVNT DRACONES**
 
-## Start the Project REPL [&#x219F;](#table-of-contents)
+This project is a work in progress -- _very_ early stages!
 
-```shell
-$ rebar3 lfe repl
-```
+If that hasn't scared you off and you would like to play (or even contribute), you can run the latest xrepl code using rebar3_lfe by doing the following:
+
+1. `git clone git@github.com:lfe/xrepl.git`
+1. `cd xrepl`
+1. `mkdir _checkouts && cd _checkouts`
+1. `git clone git@github.com:lfe/rebar3.git`
+1. `cd rebar3 && git checkout release/0.5.x`
+1. `cd ../../../`
+
+At this point, you should be:
+
+1. Back in the xrepl project directory
+1. Have a local copy of the latest rebar3 branch
+1. Be using said branch when you execute `rebar3 lfe ...` commands
 
 ## Tests [&#x219F;](#table-of-contents)
 
