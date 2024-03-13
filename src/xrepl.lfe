@@ -14,6 +14,7 @@
    (code_change 3))
   ;; server API
   (export
+   (start 0)
    (pid 0)
    (echo 1)))
 
@@ -75,6 +76,11 @@
 ;;; --------------
 ;;; our server API
 ;;; --------------
+
+(defun start ()
+  (let ((ok (io:put_chars (erlang:whereis 'user)
+                          "YAAAAAAAAAAAAAAAAAYYYYYYYYYYYYYYY!!!!!\n\n"))))
+  (lfe_shell:start))
 
 (defun pid ()
   (erlang:whereis (SERVER)))
