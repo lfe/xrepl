@@ -12,11 +12,14 @@
    (handle_info 2)
    (terminate 2)
    (code_change 3))
-  ;; server API
+  ;; API
   (export
    (start 0)
    (pid 0)
-   (echo 1)))
+   (echo 1))
+  ;; Utility
+  (export
+   (version 0) (versions 0)))
 
 ;;; ----------------
 ;;; config functions
@@ -97,6 +100,12 @@
 
 ;;; Public utility functions
 
+(defun version () (xrepl-vsn:get))
+
+(defun versions () (xrepl-vsn:all))
+
+;;; Private functions
+
 (defun banner ()
   (let* ((file (filename:join (list (code:priv_dir 'xrepl)
                                    "banners"
@@ -116,10 +125,6 @@
                                  "bgn" "\e[1;32m"
                                  "gry" "\e[37m"
                                  "end" "\e[0m"))))
-
-(defun version () (xrepl-vsn:get))
-
-(defun versions () (xrepl-vsn:all))
 
 (defun write (string)
   (io:put_chars (erlang:whereis 'user) string))
