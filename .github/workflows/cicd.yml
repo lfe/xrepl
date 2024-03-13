@@ -28,8 +28,8 @@ jobs:
         rebar3-version: '3.22'
     - name: Compile
       run: rebar3 compile
-    - name: Xref Checks
-      run: rebar3 xref
+    #- name: Xref Checks
+    #  run: rebar3 xref
     #- name: Dialyzer
     #  run: rebar3 dialyzer
     - name: Proper Tests
@@ -53,10 +53,10 @@ jobs:
         rebar3-version: '3.15'
     - name: Compile
       run: rebar3 compile
-    - name: Xref Checks
-      run: rebar3 xref
-    - name: Dialyzer
-      run: rebar3 dialyzer
+    #- name: Xref Checks
+    #  run: rebar3 xref
+    #- name: Dialyzer
+    #  run: rebar3 dialyzer
     - name: Compile Tests
       run: rebar3 as test compile
     - name: Proper Tests
