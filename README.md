@@ -33,7 +33,13 @@ Anything good that comes out of this project that may be even remotely useful to
 
 This project is a work in progress -- _very_ early stages!
 
-If that hasn't scared you off and you would like to play (or even contribute), you can run the latest xrepl code using rebar3_lfe by doing the following:
+There's a lot of work to be done, here -- the bits that have been written down are organised by milestone, here:
+
+* [lfe/xrepl/milestones](https://github.com/lfe/xrepl/milestones?direction=asc&sort=title&state=open)
+
+Specific tickets can be view by clicking on the milestone in question in that link. Keep an eye out for "epic" tickets, as those will provide the most context for the work being done in any given milestone.
+
+If the above notes haven't scared you off and you would like to play (or even contribute), you can run the latest xrepl code using rebar3_lfe by doing the following:
 
 1. `git clone git@github.com:lfe/xrepl.git`
 1. `cd xrepl`
