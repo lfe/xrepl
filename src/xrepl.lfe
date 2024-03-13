@@ -74,16 +74,52 @@
   `#(ok ,state))
 
 ;;; --------------
-;;; our server API
+;;; xrepl API
 ;;; --------------
 
-(defun start ()
-  (let ((ok (io:put_chars (erlang:whereis 'user)
-                          "YAAAAAAAAAAAAAAAAAYYYYYYYYYYYYYYY!!!!!\n\n"))))
-  (lfe_shell:start))
+(defun default-opts ()
+  `#m(banner? true))
+
+(defun start()
+  (start #m()))
+
+(defun start (opts)
+  (let* ((opts (maps:merge (default-opts) opts))
+         (banner? (mref opts 'banner?)))
+    (if banner? (write (banner)))
+    (lfe_xrepl:start)))
 
 (defun pid ()
   (erlang:whereis (SERVER)))
 
 (defun echo (msg)
   (gen_server:call (SERVER) `#(echo ,msg)))
+
+;;; Public utility functions
+
+(defun banner ()
+  (let* ((file (filename:join (list (code:priv_dir 'xrepl)
+                                   "banners"
+                                   "v2.txt")))
+         (`#(ok ,bytes) (file:read_file file)))
+    (bbmustache:render bytes `#m("xrepl-version" ,(xrepl-vsn:get)
+                                 "lfe-version" ,(xrepl-vsn:get 'lfe)
+                                 "erlang-version" ,(erlang:system_info 'otp_release)
+                                 "red" "\e[31m"
+                                 "pnk" "\e[1;31m"
+                                 "ylw" "\e[1;33m"
+                                 "gld" "\e[33m"
+                                 "cyn" "\e[36m"
+                                 "blu" "\e[1;34m"
+                                 "dbl" "\e[34m"
+                                 "grn" "\e[32m"
+                                 "bgn" "\e[1;32m"
+                                 "gry" "\e[37m"
+                                 "end" "\e[0m"))))
+
+(defun version () (xrepl-vsn:get))
+
+(defun versions () (xrepl-vsn:all))
+
+(defun write (string)
+  (io:put_chars (erlang:whereis 'user) string))

@@ -24,7 +24,7 @@
 %% store the current environment when we 'slurp' a file which we can
 %% revert back to when we do an 'unslurp'.
 
--module(lfe_shell).
+-module(lfe_xrepl).
 
 -export([start/0,start/1,server/0,server/1,
          run_script/2,run_script/3,
@@ -42,8 +42,8 @@
 -import(orddict, [store/3,find/2]).
 -import(lists, [reverse/1,foreach/2]).
 
--include("lfe.hrl").
--include("lfe_docs.hrl").
+-include_lib("lfe/src/lfe.hrl").
+-include_lib("lfe/src/lfe_docs.hrl").
 
 %% Coloured strings for the LFE banner, red, green, yellow and blue.
 -define(RED(Str), "\e[31m" ++ Str ++ "\e[0m").

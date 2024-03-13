@@ -56,7 +56,11 @@ $ rebar3 as test lfe ltest
 
 ## Usage [&#x219F;](#table-of-contents)
 
-TBD
+Assuming you've following the above steps, start up xrepl with the following:
+
+``` shell
+$ rebar3 lfe xrepl
+```
 
 ## License [&#x219F;](#table-of-contents)
 

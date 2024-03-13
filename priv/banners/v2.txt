@@ -1,0 +1,13 @@
+{{dbl}}MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM{{end}}
+{{dbl}}MM""MMMMMMMM MM""""""""`M MM""""""""`MM{{end}}{{gry}}                                     dP{{end}}
+{{dbl}}MM  MMMMMMMM MM  mmmmmmmM MM  mmmmmmmMM{{end}}{{gry}}                                     88{{end}}
+{{blu}}MM  MMMMMMMM M'      MMMM M`      MMMMM{{end}}{{gry}} dP.  .dP 88d888b. .d8888b. 88d888b. 88{{end}}
+{{blu}}MM  MMMMMMMM MM  MMMMMMMM MM  MMMMMMMMM{{end}}{{gry}}  `8bd8'  88'  `88 88ooood8 88'  `88 88{{end}}
+{{gld}}MM  MMMMMMMM MM  MMMMMMMM MM  MMMMMMMMM{{end}}{{gry}}  .d88b.  88       88.  ... 88.  .88 88{{end}}
+{{pnk}}MM         M MM  MMMMMMMM MM        .MM{{end}}{{gry}} dP'  `dP dP       `88888P' 88Y888P' dP{{end}}
+{{red}}MMMMMMMMMMMM MMMMMMMMMMMM MMMMMMMMMMMMM{{end}}{{gry}}                            88          {{end}}
+                                                     {{gry}}              dP{{end}}
+{{bgn}}xrepl{{end}}: {{grn}}{{xrepl-version}}              {{cyn}}http://github.com/lfe/xrepl{{end}}
+{{bgn}}LFE{{end}}: {{grn}}{{lfe-version}}                {{gld}}Get usage info with {{ylw}}(help){{end}}
+{{bgn}}Erlang{{end}}: {{grn}}{{erlang-version}}                {{gld}}Exit xrepl with {{ylw}}(quit){{end}}
+
