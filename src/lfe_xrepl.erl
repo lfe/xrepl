@@ -24,6 +24,11 @@
 %% store the current environment when we 'slurp' a file which we can
 %% revert back to when we do an 'unslurp'.
 
+%% NOTE: This module was copied from the LFE repository, with the aim
+%% that the need for this was temporary. Ideally, once the design for
+%% xrepl is complete, we'll know how best to update the LFE shell for
+%% optimal reuse (and public functions).
+
 -module(lfe_xrepl).
 
 -export([start/0,start/1,server/0,server/1,
