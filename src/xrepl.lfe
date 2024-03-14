@@ -87,6 +87,7 @@
   (start #m()))
 
 (defun start (opts)
+  (application:ensure_all_started 'xrepl)
   (let* ((opts (maps:merge (default-opts) opts))
          (banner? (mref opts 'banner?)))
     (if banner? (write (banner)))

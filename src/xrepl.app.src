@@ -1,15 +1,17 @@
 {application, 'xrepl', [
     {description, "An experimental, general purpose LFE REPL"},
-    {vsn, "0.1.0"},
+    {vsn, "0.0.0"},
     {registered, []},
     {mod, {'xrepl-app', []}},
     {applications, [
         kernel,
-        stdlib
+        stdlib,
+        mnkv
     ]},
     {env,[]},
     {modules, []},
 
+    %% Package metadata:
     {licenses, ["Apache 2.0"]},
     {links, []}
  ]}.
