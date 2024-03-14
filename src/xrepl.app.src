@@ -13,5 +13,6 @@
 
     %% Package metadata:
     {licenses, ["Apache 2.0"]},
-    {links, []}
+    {links, []},
+    {exclude_files, ["priv/.DS_Store", "priv/images/*"]}
  ]}.
