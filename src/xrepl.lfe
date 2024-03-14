@@ -109,7 +109,7 @@
 (defun banner ()
   (let* ((file (filename:join (list (code:priv_dir 'xrepl)
                                    "banners"
-                                   "v2.txt")))
+                                   "v1.txt")))
          (`#(ok ,bytes) (file:read_file file)))
     (bbmustache:render bytes `#m("xrepl-version" ,(xrepl-vsn:get)
                                  "lfe-version" ,(xrepl-vsn:get 'lfe)
@@ -124,6 +124,7 @@
                                  "grn" "\e[32m"
                                  "bgn" "\e[1;32m"
                                  "gry" "\e[37m"
+                                 "wht" "\e[1;37m"
                                  "end" "\e[0m"))))
 
 (defun write (string)
