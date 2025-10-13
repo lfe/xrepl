@@ -32,3 +32,4 @@ rebar/*
 rebar3.crashdump
 tramp
 priv/images/drafts
+.claude

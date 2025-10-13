@@ -33,6 +33,57 @@ Anything good that comes out of this project that may be even remotely useful to
 
 This project is a work in progress -- _very_ early stages!
 
+### Phase 1 Status: Complete ✓
+
+Phase 1 implementation is complete! The following has been implemented:
+
+#### Core Modules
+
+- **xrepl-eval**: LFE evaluation wrapper with error handling and hooks
+- **xrepl-env**: Environment management with shell variables, functions, and macros
+- **xrepl-io**: I/O handling for stdio transport
+- **xrepl-store**: ETS-based session storage (gen_server)
+- **xrepl-session**: Individual REPL session management (gen_server with evaluator process)
+- **xrepl-session-sup**: Session supervisor (simple_one_for_one)
+- **xrepl-sup**: Main application supervisor
+- **xrepl**: Main REPL loop and application entry point
+
+#### Features
+
+- ✓ Basic working REPL with single local session
+- ✓ Expression evaluation with proper error handling
+- ✓ Environment persistence across evaluations
+- ✓ Shell history variables (+, ++, +++, -, *, **, ***)
+- ✓ Shell functions (pwd, help, i, clear, etc.)
+- ✓ Pattern matching with `set`
+- ✓ Function and macro definitions
+- ✓ Clean supervisor tree for fault tolerance
+
+#### Try It Out
+
+Start the xrepl:
+
+```lfe
+(xrepl:start)
+```
+
+Evaluate expressions:
+
+```lfe
+lfe> (+ 1 2)
+3
+lfe> (defun factorial (n) (if (== n 0) 1 (* n (factorial (- n 1)))))
+factorial
+lfe> (factorial 5)
+120
+lfe> *
+120
+lfe> (set (list a b c) (list 1 2 3))
+(1 2 3)
+lfe> (+ a b c)
+6
+```
+
 There's a lot of work to be done, here -- the bits that have been written down are organised by milestone, here:
 
 * [lfe/xrepl/milestones](https://github.com/lfe/xrepl/milestones?direction=asc&sort=title&state=open)

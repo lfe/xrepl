@@ -36,7 +36,10 @@
 ;;; -----------------------
 
 (defun init (_args)
-  `#(ok #(,(sup-flags) (,(child 'xrepl 'start_link '())))))
+  (let ((children (list (store-child)
+                        (session-sup-child)
+                        (server-child))))
+    `#(ok #(,(sup-flags) ,children))))
 
 ;;; -----------------
 ;;; private functions
@@ -49,3 +52,30 @@
       shutdown 2000
       type worker
       modules (,mod)))
+
+(defun store-child ()
+  "Child spec for xrepl-store."
+  `#M(id xrepl-store
+      start #(xrepl-store start_link ())
+      restart permanent
+      shutdown 5000
+      type worker
+      modules (xrepl-store)))
+
+(defun session-sup-child ()
+  "Child spec for xrepl-session-sup."
+  `#M(id xrepl-session-sup
+      start #(xrepl-session-sup start_link ())
+      restart permanent
+      shutdown infinity
+      type supervisor
+      modules (xrepl-session-sup)))
+
+(defun server-child ()
+  "Child spec for main xrepl server."
+  `#M(id xrepl
+      start #(xrepl start_link ())
+      restart permanent
+      shutdown 5000
+      type worker
+      modules (xrepl)))

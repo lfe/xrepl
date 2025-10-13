@@ -84,14 +84,23 @@
   `#m(banner? true))
 
 (defun start()
+  "Start the xrepl with default options."
   (start #m()))
 
 (defun start (opts)
+  "Start the xrepl application and REPL loop.
+
+  Args:
+    opts: Options map (banner? -> boolean)
+
+  Returns:
+    PID of REPL process"
   (application:ensure_all_started 'xrepl)
   (let* ((opts (maps:merge (default-opts) opts))
          (banner? (mref opts 'banner?)))
     (if banner? (write (banner)))
-    (lfe_xrepl:start)))
+    ;; Start REPL loop in new process
+    (spawn (lambda () (repl-loop)))))
 
 (defun pid ()
   (erlang:whereis (SERVER)))
@@ -104,6 +113,80 @@
 (defun version () (xrepl-vsn:get))
 
 (defun versions () (xrepl-vsn:all))
+
+;;; REPL Loop functions
+
+(defun repl-loop ()
+  "Main REPL loop - get or create default session and start reading."
+  (repl-loop (get-or-create-default-session)))
+
+(defun repl-loop (session-id)
+  "REPL loop with specific session.
+
+  Args:
+    session-id: Session identifier to use
+
+  Reads expressions, evaluates them, and prints results."
+  ;; Set shell io to use LFE expand in edlin (ignore errors)
+  (try
+    (io:setopts (list (tuple 'expand_fun
+                             (lambda (b) (lfe_edlin_expand:expand b)))))
+    (catch (_ 'ok)))
+  ;; Main loop
+  (case (xrepl-io:read-expression (prompt))
+    (`#(ok ,form)
+     (handle-form form session-id)
+     (repl-loop session-id))
+    (`#(error eof)
+     (io:format "~n")
+     'ok)
+    (`#(error ,reason)
+     (xrepl-io:print-error 'error reason '())
+     (repl-loop session-id))))
+
+(defun handle-form (form session-id)
+  "Handle evaluation of a form.
+
+  Args:
+    form: LFE form to evaluate
+    session-id: Session identifier
+
+  Prints the result or error."
+  (try
+    (case (xrepl-session:eval session-id form)
+      (`#(ok ,value)
+       (xrepl-io:print-value value))
+      (`#(error ,reason)
+       (io:put_chars "** ")
+       (io:put_chars reason)
+       (io:nl)))
+    (catch
+      ((tuple class reason stack)
+       (xrepl-io:print-error class reason stack)))))
+
+(defun get-or-create-default-session ()
+  "Get existing session or create a new default session.
+
+  Returns:
+    Session ID (atom)"
+  (case (xrepl-store:list-sessions)
+    ('()
+     ;; No sessions, create default
+     (case (xrepl-store:create-session #m())
+       (`#(ok ,session-id)
+        ;; Start the session process
+        (xrepl-session-sup:start-session session-id)
+        session-id)))
+    ((cons session-id _)
+     ;; Use first session
+     session-id)))
+
+(defun prompt ()
+  "Generate the REPL prompt.
+
+  Returns:
+    Prompt string"
+  "lfe> ")
 
 ;;; Private functions
 
