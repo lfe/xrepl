@@ -54,17 +54,21 @@ Phase 1 implementation is complete! The following has been implemented:
 - ✓ Expression evaluation with proper error handling
 - ✓ Environment persistence across evaluations
 - ✓ Shell history variables (+, ++, +++, -, *, **, ***)
-- ✓ Shell functions (pwd, help, i, clear, etc.)
+- ✓ Shell functions (pwd, help, i, clear, history, clear-history, etc.)
 - ✓ Pattern matching with `set`
 - ✓ Function and macro definitions
 - ✓ Clean supervisor tree for fault tolerance
+- ✓ **CLI executable** (`./bin/xrepl`) with command-line options
+- ✓ **Readline support** for line editing (Ctrl+A, Ctrl+E, arrow keys, etc.)
+- ✓ **Persistent command history** saved to `~/.lfe-xrepl-history`
+- ✓ **Tab completion** for LFE symbols
 
 #### Try It Out
 
 Start the xrepl:
 
-```lfe
-(xrepl:start)
+```bash
+./bin/xrepl
 ```
 
 Evaluate expressions:
@@ -82,7 +86,17 @@ lfe> (set (list a b c) (list 1 2 3))
 (1 2 3)
 lfe> (+ a b c)
 6
+lfe> (history)
+   1  (+ 1 2)
+   2  (defun factorial (n) (if (== n 0) 1 (* n (factorial (- n 1)))))
+   3  (factorial 5)
+   4  *
+   5  (set (list a b c) (list 1 2 3))
+   6  (+ a b c)
+ok
 ```
+
+Use arrow keys to navigate through history, Ctrl+A/E to move cursor, and Tab for completion!
 
 There's a lot of work to be done, here -- the bits that have been written down are organised by milestone, here:
 
@@ -113,10 +127,85 @@ $ rebar3 as test lfe ltest
 
 ## Usage [&#x219F;](#table-of-contents)
 
-Assuming you've following the above steps, start up xrepl with the following:
+### Command Line Usage
 
-``` shell
-$ rebar3 lfe xrepl
+Start the xrepl REPL using the command-line executable:
+
+```bash
+./bin/xrepl
+```
+
+#### Command Line Options
+
+- `--help` - Show help message
+- `--version` - Show version information
+- `--no-banner` - Start without displaying the banner
+- `--no-history` - Disable command history
+- `--history FILE` - Use custom history file
+- `--node NAME` - Start as distributed Erlang node
+- `--cookie COOKIE` - Set distribution cookie
+
+Examples:
+
+```bash
+# Start with default settings
+./bin/xrepl
+
+# Start without banner
+./bin/xrepl --no-banner
+
+# Start as distributed node
+./bin/xrepl --node mynode@localhost
+
+# Use custom history file
+./bin/xrepl --history /tmp/my-repl-history
+```
+
+#### Environment Variables
+
+- `XREPL_ERL_FLAGS` - Additional Erlang VM flags
+- `XREPL_HISTORY` - History file location (default: `~/.lfe-xrepl-history`)
+
+### Command History
+
+xrepl maintains a command history that persists across sessions:
+
+- **Arrow keys** (↑/↓) navigate through command history
+- **`(history)`** - Show all commands in history
+- **`(clear-history)`** - Clear the command history
+- History is automatically saved to `~/.lfe-xrepl-history`
+
+Set a custom history location:
+
+```bash
+export XREPL_HISTORY=/path/to/history
+./bin/xrepl
+```
+
+### Line Editing
+
+xrepl supports standard line editing features:
+
+- **Ctrl+A** - Move to beginning of line
+- **Ctrl+E** - Move to end of line
+- **Ctrl+K** - Kill to end of line
+- **Ctrl+U** - Kill to beginning of line
+- **Ctrl+W** - Kill previous word
+- **Tab** - Complete symbol (LFE-aware)
+- **Arrow keys** - Navigate and recall history
+
+### Alternative: Using rebar3
+
+You can also start xrepl via rebar3:
+
+```shell
+rebar3 lfe repl
+```
+
+Then in the REPL:
+
+```lfe
+(xrepl:start)
 ```
 
 ## License [&#x219F;](#table-of-contents)

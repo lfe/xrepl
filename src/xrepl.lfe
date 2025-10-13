@@ -81,7 +81,9 @@
 ;;; --------------
 
 (defun default-opts ()
-  `#m(banner? true))
+  `#m(banner? true
+      history_enabled true
+      history_file ,(xrepl-history:default-file)))
 
 (defun start()
   "Start the xrepl with default options."
@@ -91,16 +93,24 @@
   "Start the xrepl application and REPL loop.
 
   Args:
-    opts: Options map (banner? -> boolean)
+    opts: Options map with keys:
+      - banner: Show banner (boolean, default true)
+      - history_enabled: Enable history (boolean, default true)
+      - history_file: History file path (string/binary)
 
   Returns:
     PID of REPL process"
   (application:ensure_all_started 'xrepl)
-  (let* ((opts (maps:merge (default-opts) opts))
-         (banner? (mref opts 'banner?)))
-    (if banner? (write (banner)))
+  (let ((merged-opts (maps:merge (default-opts) opts)))
+    ;; Initialize readline support
+    (init-readline)
+    ;; Initialize history
+    (xrepl-history:init merged-opts)
+    ;; Display banner if requested
+    (let ((banner? (maps:get 'banner merged-opts 'true)))
+      (if banner? (write (banner))))
     ;; Start REPL loop in new process
-    (spawn (lambda () (repl-loop)))))
+    (spawn (lambda () (repl-loop merged-opts)))))
 
 (defun pid ()
   (erlang:whereis (SERVER)))
@@ -116,33 +126,47 @@
 
 ;;; REPL Loop functions
 
-(defun repl-loop ()
-  "Main REPL loop - get or create default session and start reading."
-  (repl-loop (get-or-create-default-session)))
+(defun init-readline ()
+  "Initialize readline support with LFE expansion."
+  (try
+    (progn
+      ;; Set up LFE expand function for tab completion
+      (io:setopts (list (tuple 'expand_fun
+                              (lambda (before)
+                                (lfe_edlin_expand:expand before)))))
+      'ok)
+    (catch
+      ((tuple _ _ _)
+       ;; If any readline setup fails, continue anyway
+       (logger:warning "Failed to initialize readline support")
+       'ok))))
 
-(defun repl-loop (session-id)
+(defun repl-loop (opts)
+  "Main REPL loop - get or create default session and start reading.
+
+  Args:
+    opts: Options map"
+  (repl-loop (get-or-create-default-session) opts))
+
+(defun repl-loop (session-id opts)
   "REPL loop with specific session.
 
   Args:
     session-id: Session identifier to use
+    opts: Options map
 
   Reads expressions, evaluates them, and prints results."
-  ;; Set shell io to use LFE expand in edlin (ignore errors)
-  (try
-    (io:setopts (list (tuple 'expand_fun
-                             (lambda (b) (lfe_edlin_expand:expand b)))))
-    (catch (_ 'ok)))
   ;; Main loop
   (case (xrepl-io:read-expression (prompt))
     (`#(ok ,form)
      (handle-form form session-id)
-     (repl-loop session-id))
+     (repl-loop session-id opts))
     (`#(error eof)
      (io:format "~n")
      'ok)
     (`#(error ,reason)
      (xrepl-io:print-error 'error reason '())
-     (repl-loop session-id))))
+     (repl-loop session-id opts))))
 
 (defun handle-form (form session-id)
   "Handle evaluation of a form.
@@ -152,6 +176,9 @@
     session-id: Session identifier
 
   Prints the result or error."
+  ;; Add to history (convert form to string)
+  (xrepl-history:add (format-form form))
+  ;; Evaluate
   (try
     (case (xrepl-session:eval session-id form)
       (`#(ok ,value)
@@ -163,6 +190,16 @@
     (catch
       ((tuple class reason stack)
        (xrepl-io:print-error class reason stack)))))
+
+(defun format-form (form)
+  "Convert form to string for history.
+
+  Args:
+    form: LFE form
+
+  Returns:
+    String representation"
+  (lfe_io:print1 form))
 
 (defun get-or-create-default-session ()
   "Get existing session or create a new default session.

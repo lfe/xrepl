@@ -165,7 +165,13 @@
           (tuple 'memory 1 '(lambda (t) (: lfe_xrepl memory t)))
 
           ;; uptime/0 - system uptime
-          (tuple 'uptime 0 '(lambda () (: lfe_xrepl uptime))))))
+          (tuple 'uptime 0 '(lambda () (: lfe_xrepl uptime)))
+
+          ;; history/0 - show command history
+          (tuple 'history 0 '(lambda () (list-history)))
+
+          ;; clear-history/0 - clear command history
+          (tuple 'clear-history 0 '(lambda () (xrepl-history:clear) 'ok)))))
     ;; Add all functions to environment
     (lists:foldl
      (lambda (func-def e)
@@ -174,6 +180,20 @@
           (lfe_eval:add_dynamic_func name arity def e))))
      env
      functions)))
+
+(defun list-history ()
+  "Display command history.
+
+  Returns:
+    ok"
+  (let ((commands (xrepl-history:get-all)))
+    (lists:foldl
+     (lambda (cmd idx)
+       (io:format "~4w  ~s~n" (list idx cmd))
+       (+ idx 1))
+     1
+     commands))
+  'ok)
 
 (defun add-shell-macros (env)
   "Add shell macros to the environment.
