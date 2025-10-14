@@ -138,9 +138,9 @@
             (case (get-last-command)
               (trimmed 'ok)
               (_
-               (let ((timestamp (erlang:system_time 'second))
-                     (key (erlang:unique_integer '(monotonic)))
-                     (history-entry (tuple timestamp trimmed)))
+               (let* ((timestamp (erlang:system_time 'second))
+                      (key (erlang:unique_integer '(monotonic)))
+                      (history-entry (tuple timestamp trimmed)))
                  (ets:insert 'xrepl_history (tuple key history-entry))
                  ;; Limit history size (keep last 1000)
                  (trim-history 1000)))))
@@ -193,9 +193,9 @@
     ok"
   (lists:foreach
    (lambda (cmd)
-     (let ((timestamp (erlang:system_time 'second))
-           (key (erlang:unique_integer '(monotonic)))
-           (history-entry (tuple timestamp cmd)))
+     (let* ((timestamp (erlang:system_time 'second))
+            (key (erlang:unique_integer '(monotonic)))
+            (history-entry (tuple timestamp cmd)))
        (ets:insert 'xrepl_history (tuple key history-entry))))
    commands)
   'ok)
@@ -217,8 +217,8 @@
 
   Returns:
     ok"
-  (let ((all-entries (lists:sort (ets:tab2list 'xrepl_history)))
-        (count (length all-entries)))
+  (let* ((all-entries (lists:sort (ets:tab2list 'xrepl_history)))
+         (count (length all-entries)))
     (if (> count max-size)
       (let ((to-delete (lists:sublist all-entries (- count max-size))))
         (lists:foreach
