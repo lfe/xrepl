@@ -113,10 +113,12 @@
   (process_flag 'trap_exit 'true)
   (let* ((base-env (xrepl-env:new))
          (restored-env (restore-env session-id base-env))
-         (evaluator (start-evaluator restored-env))
+         ;; Inject session-id into environment for commands to access
+         (env-with-id (lfe_env:add_vbinding '$session-id session-id restored-env))
+         (evaluator (start-evaluator env-with-id))
          (now (erlang:monotonic_time 'millisecond)))
     (tuple 'ok (make-session-state id session-id
-                                   env restored-env
+                                   env env-with-id
                                    evaluator evaluator
                                    eval-pending 'undefined
                                    last-save now

@@ -5,7 +5,10 @@
   a complete session lifecycle management API."
   (export
    (create 0) (create 1)          ;; Create new session
-   (destroy 1)                    ;; Destroy session
+   (close 1)                      ;; Close session (stop but keep metadata)
+   (reopen 1)                     ;; Reopen a closed session
+   (destroy 1)                    ;; Destroy session (complete deletion)
+   (purge-stopped 0)              ;; Purge all stopped sessions
    (list 0)                       ;; List all sessions
    (list-detailed 0)              ;; List with details
    (get-info 1)                   ;; Get session info
@@ -15,7 +18,8 @@
    (get-current 0)                ;; Get current session
    (set-current 1)                ;; Set current session
    (clear-current 0)              ;; Clear current session
-   (switch 1)))                   ;; Switch to different session
+   (switch 1)                     ;; Switch to different session
+   (find-default 0)))             ;; Find default session
 
 ;;; ----------------
 ;;; API functions
@@ -58,8 +62,56 @@
     (`#(error ,reason)
      (tuple 'error reason))))
 
+(defun close (session-id)
+  "Close a session (stop process but keep metadata for reopening).
+
+  Args:
+    session-id: Session identifier
+
+  Returns:
+    ok"
+  ;; Stop the process if running
+  (case (erlang:whereis (xrepl-session:process-name session-id))
+    ('undefined
+     ;; Process not running, just mark as stopped
+     (xrepl-store:set-metadata session-id (map 'stopped? 'true))
+     'ok)
+    (_pid
+     ;; Stop process gracefully via session-sup
+     (xrepl-session-sup:stop-session session-id)
+     ;; Mark as stopped in store
+     (xrepl-store:set-metadata session-id (map 'stopped? 'true))
+     'ok)))
+
+(defun reopen (session-id)
+  "Reopen a closed session.
+
+  Args:
+    session-id: Session identifier
+
+  Returns:
+    ok | #(error reason)"
+  ;; Check if session exists
+  (case (xrepl-store:get-session session-id)
+    (`#(ok ,_session-data)
+     ;; Check if already running
+     (case (is-active? session-id)
+       ('true
+        (tuple 'error 'already-running))
+       ('false
+        ;; Start the session process
+        (case (xrepl-session-sup:start-session session-id)
+          (`#(ok ,_pid)
+           ;; Clear the stopped flag
+           (xrepl-store:set-metadata session-id (map 'stopped? 'false))
+           'ok)
+          (`#(error ,reason)
+           (tuple 'error reason))))))
+    (`#(error ,reason)
+     (tuple 'error reason))))
+
 (defun destroy (session-id)
-  "Destroy a session.
+  "Destroy a session (complete deletion).
 
   Stops the session process and removes from storage.
 
@@ -80,6 +132,34 @@
      ;; Remove from store
      (xrepl-store:delete-session session-id)
      'ok)))
+
+(defun purge-stopped ()
+  "Purge all stopped sessions (complete deletion of stopped sessions).
+
+  Finds all sessions that are not running (process stopped) and removes them from storage.
+  Does not purge the default session or currently running sessions.
+
+  Returns:
+    Number of sessions purged"
+  (let* ((all-sessions (xrepl-store:list-sessions-detailed))
+         (stopped-sessions (lists:filter
+                             (lambda (session-data)
+                               (let* ((session-id (maps:get 'id session-data))
+                                      (metadata (maps:get 'metadata session-data (map)))
+                                      (name (maps:get 'name metadata "-"))
+                                      (is-running? (is-active? session-id)))
+                                 ;; Keep session if it's running or if it's the default session
+                                 (andalso (not is-running?)
+                                          (=/= name "default"))))
+                             all-sessions)))
+    ;; Delete each stopped session
+    (lists:foreach
+      (lambda (session-data)
+        (let ((session-id (maps:get 'id session-data)))
+          (xrepl-store:delete-session session-id)))
+      stopped-sessions)
+    ;; Return count
+    (length stopped-sessions)))
 
 (defun list ()
   "List all session IDs.
@@ -204,6 +284,20 @@
        (tuple 'error 'session-not-found))
       (_
        (attach session-id)))))
+
+(defun find-default ()
+  "Find the default session.
+
+  Returns:
+    session-id | undefined"
+  (case (xrepl-store:find-sessions
+          (lambda (data)
+            (let ((metadata (maps:get 'metadata data (map))))
+              (== (maps:get 'name metadata 'undefined) "default"))))
+    ((cons session-data _)
+     (maps:get 'id session-data))
+    (()
+     'undefined)))
 
 ;;; ----------------
 ;;; Private helpers

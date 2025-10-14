@@ -77,6 +77,8 @@ Start the xrepl:
 ./bin/xrepl
 ```
 
+![xrepl startup](priv/images/startup-screenshot.png)
+
 Evaluate expressions:
 
 ```lfe

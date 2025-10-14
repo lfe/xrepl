@@ -178,7 +178,7 @@
 
           ;; Session management functions
           ;; sessions/0 - list all sessions
-          (tuple 'sessions 0 '(lambda () (xrepl-commands:sessions)))
+          (tuple 'sessions 0 '(lambda () (xrepl-commands:sessions $session-id)))
 
           ;; new-session/0 - create new session
           (tuple 'new-session 0 '(lambda () (xrepl-commands:new-session)))
@@ -190,10 +190,16 @@
           (tuple 'switch-session 1 '(lambda (id) (xrepl-commands:switch-session id)))
 
           ;; close-session/1 - close session
-          (tuple 'close-session 1 '(lambda (id) (xrepl-commands:close-session id)))
+          (tuple 'close-session 1 '(lambda (id) (xrepl-commands:close-session id $session-id)))
+
+          ;; reopen-session/1 - reopen a closed session
+          (tuple 'reopen-session 1 '(lambda (id) (xrepl-commands:reopen-session id)))
+
+          ;; purge-sessions/0 - purge all stopped sessions
+          (tuple 'purge-sessions 0 '(lambda () (xrepl-commands:purge-sessions)))
 
           ;; current-session/0 - show current session
-          (tuple 'current-session 0 '(lambda () (xrepl-commands:current-session)))
+          (tuple 'current-session 0 '(lambda () (xrepl-commands:current-session $session-id)))
 
           ;; session-info/1 - show session info
           (tuple 'session-info 1 '(lambda (id) (xrepl-commands:session-info id))))))
@@ -236,7 +242,9 @@
   (io:format "  (switch-session id)     - Switch to session by ID or name~n")
   (io:format "  (current-session)       - Show current session info~n")
   (io:format "  (session-info id)       - Show detailed session info~n")
-  (io:format "  (close-session id)      - Close a session~n~n")
+  (io:format "  (close-session id)      - Close a session (keeps metadata)~n")
+  (io:format "  (reopen-session id)     - Reopen a closed session~n")
+  (io:format "  (purge-sessions)        - Permanently delete all stopped sessions~n~n")
   (io:format "\e[1mHistory:\e[0m~n")
   (io:format "  (history)               - Show command history~n")
   (io:format "  (clear-history)         - Clear command history~n~n")
