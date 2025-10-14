@@ -79,20 +79,22 @@
     name-or-id: Session name or ID (string or atom)
 
   Returns:
-    ok | #(error reason)"
-  ;; Convert atom to string if needed
-  (let ((name-str (cond
-                    ((is_atom name-or-id) (atom_to_list name-or-id))
-                    ((is_list name-or-id) name-or-id)
-                    ((is_binary name-or-id) (binary_to_list name-or-id))
-                    ('true name-or-id))))
-    (case (xrepl-session-manager:switch name-str)
-      ('ok
-       (io:format "Switched to session ~s~n" (list name-str))
-       'ok)
-      (`#(error ,reason)
-       (io:format "Error switching session: ~p~n" (list reason))
-       (tuple 'error reason)))))
+    #(switch session-id) | #(error reason)"
+  ;; First resolve the name/id to get the actual session-id
+  (case (resolve-session-id name-or-id)
+    ('undefined
+     (io:format "Error: Session not found: ~s~n" (list name-or-id))
+     (tuple 'error 'session-not-found))
+    (session-id
+     ;; Now switch to it
+     (case (xrepl-session-manager:switch session-id)
+       ('ok
+        (io:format "Switched to session ~s~n" (list session-id))
+        ;; Return special tuple to signal REPL should switch
+        (tuple 'switch session-id))
+       (`#(error ,reason)
+        (io:format "Error switching session: ~p~n" (list reason))
+        (tuple 'error reason))))))
 
 (defun close-session (name-or-id current-session-id)
   "Close a session by name or ID. If closing current session, switches to another.

@@ -93,7 +93,7 @@
     'ok))
 
 (defun print-error (class reason stack)
-  "Print an error to stdout with '** ' prefix.
+  "Print an error to stdout.
 
   Args:
     class: Error class (error, throw, exit)
@@ -103,7 +103,6 @@
   Returns:
     ok"
   (let ((error-str (format-error class reason stack)))
-    (io:put_chars "** ")
     (io:put_chars error-str)
     (io:nl)
     'ok))
@@ -144,8 +143,15 @@
                                                   skip-frame? format-term 1)))
         (lists:flatten error-str))
       ;; Simple error without stack trace
-      (lists:flatten (lfe_io:format1 "~p: ~p" (list class reason))))
+      ;; Check if reason is already a formatted string (from xrepl-eval)
+      (if (is_list reason)
+        ;; Already formatted as string, return as-is
+        reason
+        ;; Not a string, format cleanly without class prefix or quotes
+        (lists:flatten (lfe_io:format1 "Error: ~w" (list reason)))))
     (catch
       ;; Fallback if formatting fails
       ((tuple _ _ _)
-       (lists:flatten (lfe_io:format1 "~p: ~p" (list class reason)))))))
+       (if (is_list reason)
+         reason
+         (lists:flatten (lfe_io:format1 "Error: ~w" (list reason))))))))

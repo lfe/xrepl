@@ -38,7 +38,7 @@
        (lists:flatten error-str))
      (catch
        ((tuple _ _ _)
-        (lists:flatten (lfe_io:format1 "Error: ~p" (list reason))))))))
+        (lists:flatten (lfe_io:format1 "Error: ~w" (list reason))))))))
 
 ;;; ----------------
 ;;; Core functions

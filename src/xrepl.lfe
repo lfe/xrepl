@@ -218,8 +218,7 @@
           ;; Normal value
           (xrepl-io:print-value value))))
       (`#(error ,reason)
-       (io:put_chars "** ")
-       ;; Reason might be an iolist, flatten it
+       ;; Reason is already a formatted error string
        (io:put_chars (if (is_binary reason)
                        reason
                        (list_to_binary (lists:flatten (io_lib:format "~s" (list reason))))))
