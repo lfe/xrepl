@@ -55,12 +55,10 @@
     #(value updated-env) on success
     #(error reason) on failure"
   ((form env)
-   (io:format "DEBUG eval-form: form=~p~n" (list form))
    (try
      ;; Macro expand the form
      (case (lfe_macro:expand_fileforms (list (tuple form 1)) env 'false 'true)
        (`#(ok ,eforms ,new-env ,warnings)
-        (io:format "DEBUG: expanded forms=~p~n" (list eforms))
         ;; Report warnings if any
         (if (not (== warnings '()))
           (list-warnings warnings))
@@ -68,7 +66,13 @@
         (let ((result (lists:foldl
                        (lambda (ef acc)
                          (case acc
-                           (`#(,_ ,s) (eval-form-1 (car ef) s))
+                           (`#(,_ ,s)
+                            (case ef
+                              ;; ef is {Form, LineNumber}
+                              (`#(,form ,_line)
+                               (eval-form-1 form s))
+                              ;; Fallback if format is different
+                              (_ (eval-form-1 (car ef) s))))
                            (_ acc)))
                        (tuple '() env)
                        eforms)))
@@ -131,8 +135,6 @@
 
   ;; General expression evaluation
   ((expr env)
-   (io:format "DEBUG eval-form-1: expr=~p~n" (list expr))
-   (io:format "DEBUG eval-form-1: env keys=~p~n" (list (lfe_env:get_vbindings env)))
    (let ((value (lfe_eval:expr expr env)))
      (tuple value env))))
 

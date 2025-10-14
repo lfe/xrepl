@@ -1,19 +1,22 @@
-              {{wht}}_ ,;::;,,,,{{end}}{{blu}}._{{end}}               
-          {{wht}};loll{{end}}{{blu}},,,,,,,,,,,,,''.{{end}}             
-       {{wht}}'lxdl{{end}}{{dbl}};''{{end}}{{blu}},,,,,,,,,,,,,,,,,'.{{end}}          
-     {{wht}}'lOx:{{end}}{{dbl}}''''''{{end}}{{blu}},,,,,,,,,,,,,,,,,:'.{{end}}        
-    {{wht}};OOc{{end}}{{dbl}}'''''''''{{end}}{{blu}},,,,,,,,,,,,,,,,:;;:'.{{end}}     
-   {{wht}}c0O;'{{end}}{{dbl}}''''''''''{{end}}{{blu}},,,,,,,,,,,,,,,;;;;;:{{end}}     
+
+
+              {{wht}}_ ,;::;,,,,{{end}}{{blu}}._{{end}}
+          {{wht}};loll{{end}}{{blu}},,,,,,,,,,,,,''.{{end}}
+       {{wht}}'lxdl{{end}}{{dbl}};''{{end}}{{blu}},,,,,,,,,,,,,,,,,'.{{end}}
+     {{wht}}'lOx:{{end}}{{dbl}}''''''{{end}}{{blu}},,,,,,,,,,,,,,,,,:'.{{end}}
+    {{wht}};OOc{{end}}{{dbl}}'''''''''{{end}}{{blu}},,,,,,,,,,,,,,,,:;;:'.{{end}}
+   {{wht}}c0O;'{{end}}{{dbl}}''''''''''{{end}}{{blu}},,,,,,,,,,,,,,,;;;;;:{{end}}
   {{wht}}xKc{{end}}{{dbl}}...'''''''''''{{end}}{{blu}},,,,,,,,,,,,:;;;;;;{{end}}{{bgn}}dP.{{end}}
- {{wht}};Kk'{{end}}{{dbl}}....'''''''''''{{end}}{{blu}},,,,,,,,,,,:;;;;;;{{end}}{{bgn}}88:{{end}}   
- {{wht}}c{{bgn}}dP.{{end}}{{dbl}}..{{bgn}}.dP{{end}}{{dbl}}'{{bgn}}88d888b.{{end}}{{dbl}}'{{end}}{{bgn}}.d8888b.{{end}}{{blu}},{{end}}{{bgn}}88d888b.{{end}}{{blu}};{{end}}{{bgn}}88{{end}}{{blu}};.{{end}}   
+ {{wht}};Kk'{{end}}{{dbl}}....'''''''''''{{end}}{{blu}},,,,,,,,,,,:;;;;;;{{end}}{{bgn}}88:{{end}}
+ {{wht}}c{{bgn}}dP.{{end}}{{dbl}}..{{bgn}}.dP{{end}}{{dbl}}'{{bgn}}88d888b.{{end}}{{dbl}}'{{end}}{{bgn}}.d8888b.{{end}}{{blu}},{{end}}{{bgn}}88d888b.{{end}}{{blu}};{{end}}{{bgn}}88{{end}}{{blu}};.{{end}}
  {{wht}}:X{{bgn}}`8bd8'{{end}}{{dbl}}..{{end}}{{bgn}}88'{{end}}{{dbl}}''{{end}}{{bgn}}`88{{end}}{{dbl}}'{{end}}{{bgn}}88ooood8{{end}}{{blu}},{{end}}{{bgn}}88'{{end}}{{blu}};;{{end}}{{bgn}}`88{{end}}{{blu}}#{{end}}{{bgn}}88{{end}}{{blu}};'{{end}}  {{gld}}xrepl{{end}}: {{grn}}{{xrepl-version}}{{end}}
  {{wht}},O{{bgn}}.d88b.{{end}}{{dbl}}..{{end}}{{bgn}}88{{end}}{{dbl}}'''''''{{end}}{{bgn}}88.{{end}}{{blu}},,{{end}}{{bgn}}...{{end}}{{blu}}'{{end}}{{bgn}}88.{{end}}{{blu}};;{{end}}{{bgn}}.88{{end}}{{blu}}#{{end}}{{bgn}}88{{blu}}'{{end}}   {{gld}}LFE{{end}}: {{grn}}{{lfe-version}}{{end}}
   {{bgn}}dP'{{end}}{{dbl}}..{{bgn}}`dP{{end}}{{dbl}}.{{end}}{{bgn}}dP{{end}}{{dbl}}'''''''{{end}}{{bgn}}`88888P'{{end}}{{blu}}:{{end}}{{bgn}}88Y888P'{{end}}{{blu}}#{{end}}{{bgn}}dP{{blu}}'{{end}}   {{gld}}Erlang{{end}}: {{grn}}{{erlang-version}}
-  {{wht}}'x0:{{end}}{{dbl}}......'{{end}}{{pnk}},,;:cccccccc{{end}}{{gld}}=-,,{{end}}{{bgn}}88{{end}}{{blu}},:;%##%;{{end}}  
-   {{wht}}'dO:{{end}}{{dbl}}.'{{end}}{{red}},;:cc{{end}}{{pnk}}ccllllllloo{{end}}{{gld}}dddd{{end}}{{bgn}}8P{{end}}{{blu}}l:{{end}}{{blu}};;#;,{{end}}   
+  {{wht}}'x0:{{end}}{{dbl}}......'{{end}}{{pnk}},,;:cccccccc{{end}}{{gld}}=-,,{{end}}{{bgn}}88{{end}}{{blu}},:;%##%;{{end}}
+   {{wht}}'dO:{{end}}{{dbl}}.'{{end}}{{red}},;:cc{{end}}{{pnk}}ccllllllloo{{end}}{{gld}}dddd{{end}}{{bgn}}8P{{end}}{{blu}}l:{{end}}{{blu}};;#;,{{end}}
      {{wht}}ckx{{end}}{{red}}lcccccccc{{end}}{{pnk}}clllllll{{end}}{{gld}}odddxOOkoc{{end}}{{blu}};'{{end}}       {{cyn}}http://github.com/lfe/xrepl{{end}}
       {{wht}}'lx{{end}}{{red}}xocccccccc{{end}}{{pnk}}lllllll{{end}}{{gld}}odddkOOxc{{end}}{{blu}}'{{end}}        {{gld}}Get usage info with {{ylw}}(help){{end}}
         {{wht}}'c{{end}}{{red}}oddolcccccc{{end}}{{pnk}}clllll{{end}}{{gld}}odoo;{{end}}{{blu}}:'{{end}}          {{gld}}Exit xrepl with {{ylw}}(quit){{end}}
-           {{wht}}';{{end}}{{red}}ccccccccccc{{pnk}}cc:{{end}}{{gld}};;{{end}}{{blu}},'{{end}}             
+           {{wht}}';{{end}}{{red}}ccccccccccc{{pnk}}cc:{{end}}{{gld}};;{{end}}{{blu}},'{{end}}
                 {{red}}`"''''''{{end}}
+

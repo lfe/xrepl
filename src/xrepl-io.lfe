@@ -32,8 +32,14 @@
      ;; Parse the line as an LFE expression
      (if (is_list line)
        (case (lfe_io:read_string line)
-         (`#(ok ,form)
-          (tuple 'ok form))
+         (`#(ok ,forms)
+          ;; lfe_io:read_string returns a list of forms, take the first one
+          (case forms
+            ((cons form _)
+             (tuple 'ok form))
+            ('()
+             ;; Empty input
+             (tuple 'error 'empty-input))))
          (`#(error ,_ ,_)
           ;; Try to parse as an incomplete expression
           (read-multiline prompt line))
@@ -59,8 +65,13 @@
      (if (is_list line)
        (let ((new-acc (++ acc line)))
          (case (lfe_io:read_string new-acc)
-           (`#(ok ,form)
-            (tuple 'ok form))
+           (`#(ok ,forms)
+            ;; lfe_io:read_string returns a list of forms, take the first one
+            (case forms
+              ((cons form _)
+               (tuple 'ok form))
+              ('()
+               (tuple 'error 'empty-input))))
            (`#(error ,_ ,_)
             ;; Still incomplete, keep reading
             (read-multiline prompt new-acc))
