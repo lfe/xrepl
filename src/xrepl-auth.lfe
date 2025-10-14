@@ -1,3 +1,4 @@
+;; -*- coding: utf-8 -*-
 (defmodule xrepl-auth
   "Authentication token management for network access."
   (behaviour gen_server)
@@ -121,19 +122,36 @@
 
 (defun display-token (token)
   "Display token prominently in terminal."
-  (io:format "~n" '())
-  (io:format "╔═══════════════════════════════════════════════════════════════════════╗~n" '())
-  (io:format "║ xrepl Network Authentication Token                                    ║~n" '())
-  (io:format "╠═══════════════════════════════════════════════════════════════════════╣~n" '())
-  (io:format "║                                                                       ║~n" '())
-  (io:format "║  ~s  ║~n" (list token))
-  (io:format "║                                                                       ║~n" '())
-  (io:format "║  Use this token to connect to the network REPL:                      ║~n" '())
-  (io:format "║  --token ~s...                                        ║~n" (list (lists:sublist token 48)))
-  (io:format "║                                                                       ║~n" '())
-  (io:format "║  Saved to: ~~/.xrepl/auth.token                                       ║~n" '())
-  (io:format "╚═══════════════════════════════════════════════════════════════════════╝~n" '())
-  (io:format "~n" '()))
+  ;; Unicode encoding is set at application startup in xrepl-app:start/2
+  ;; Build box characters from Unicode codepoints to avoid compiler encoding issues
+  (let* ((tl #x2554)    ;; ╔ top-left
+         (tr #x2557)    ;; ╗ top-right
+         (bl #x255A)    ;; ╚ bottom-left
+         (br #x255D)    ;; ╝ bottom-right
+         (h  #x2550)    ;; ═ horizontal
+         (v  #x2551)    ;; ║ vertical
+         (ml #x2560)    ;; ╠ middle-left
+         (mr #x2563)    ;; ╣ middle-right
+         (hline (unicode:characters_to_list (lists:duplicate 71 h)))
+         (top (unicode:characters_to_list (++ (list tl) hline (list tr))))
+         (mid (unicode:characters_to_list (++ (list ml) hline (list mr))))
+         (bot (unicode:characters_to_list (++ (list bl) hline (list br))))
+         (vbar (unicode:characters_to_list (list v)))
+         (blank (++ vbar (lists:duplicate 71 32) vbar)))
+    (io:put_chars "\n")
+    (io:put_chars (++ top "\n"))
+    (io:put_chars (++ vbar " xrepl Network Authentication Token                                    " vbar "\n"))
+    (io:put_chars (++ mid "\n"))
+    (io:put_chars (++ blank "\n"))
+    (io:put_chars (++ vbar "  " token "     " vbar "\n"))
+    (io:put_chars (++ blank "\n"))
+    (io:put_chars (++ vbar "  Use this token to connect to the network REPL:                       " vbar "\n"))
+    (io:put_chars (++ vbar "  --token " (lists:sublist token 5) "...                                                     " vbar "\n"))
+    (io:put_chars (++ blank "\n"))
+    (io:put_chars (++ vbar "  Saved to: ~/.xrepl/auth.token                                        " vbar "\n"))
+    (io:put_chars (++ blank "\n"))
+    (io:put_chars (++ bot "\n"))
+    (io:put_chars "\n")))
 
 (defun constant-time-compare (a b)
   "Constant-time string comparison to prevent timing attacks."

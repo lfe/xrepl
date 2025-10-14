@@ -10,6 +10,10 @@
 ;;; --------------------------
 
 (defun start (_type _args)
+  ;; Set Unicode encoding for all standard I/O devices
+  (io:setopts 'standard_io (list (tuple 'encoding 'unicode)))
+  (io:setopts 'standard_error (list (tuple 'encoding 'unicode)))
+
   (logger:set_application_level 'xrepl 'all)
   (logger:info "Starting xrepl application ...")
   (case (xrepl-sup:start_link)
