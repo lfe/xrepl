@@ -82,6 +82,25 @@
            (xrepl-client:disconnect conn)
            (tuple 'stop 'normal conn))
 
+          ;; Ping command - check server liveness
+          ((== trimmed "(ping)")
+           (try
+             (case (xrepl-client:ping conn)
+               (`#(ok ,response ,new-conn)
+                (io:format "pong~n")
+                (gen_server:cast (self) 'prompt)
+                (tuple 'noreply new-conn))
+               (`#(error ,reason ,new-conn)
+                (io:format "Ping failed: ~p~n" (list reason))
+                (gen_server:cast (self) 'prompt)
+                (tuple 'noreply new-conn)))
+             (catch
+               ((tuple 'error reason stacktrace)
+                (io:format "~nClient error: ~p~n" (list reason))
+                (io:format "Recovering...~n~n")
+                (gen_server:cast (self) 'prompt)
+                (tuple 'noreply conn)))))
+
           ;; Regular evaluation
           ('true
            ;; Wrap eval in try-catch for crash recovery

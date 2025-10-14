@@ -8,6 +8,7 @@
    (send 2)
    (recv 2)
    (eval 2)
+   (ping 1)
    (clone 1)
    (ls-sessions 1)))
 
@@ -132,6 +133,18 @@
            (tuple 'ok (maps:get #"value" response) new-conn))
           (#"error"
            (tuple 'error (maps:get #"error" response) new-conn))))
+       (`#(error ,reason)
+        (tuple 'error reason new-conn))))
+    (`#(error ,reason)
+     (tuple 'error reason conn))))
+
+(defun ping (conn)
+  "Ping server to check liveness."
+  (case (send conn (map 'op 'ping))
+    (`#(ok ,msg-id ,new-conn)
+     (case (recv new-conn 5000)
+       (`#(ok ,response)
+        (tuple 'ok response new-conn))
        (`#(error ,reason)
         (tuple 'error reason new-conn))))
     (`#(error ,reason)
