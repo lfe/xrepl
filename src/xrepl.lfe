@@ -102,15 +102,15 @@
     PID of REPL process"
   (application:ensure_all_started 'xrepl)
   (let ((merged-opts (maps:merge (default-opts) opts)))
-    ;; Initialize readline support
-    (init-readline)
-    ;; Initialize history
-    (xrepl-history:init merged-opts)
     ;; Display banner if requested
     (let ((banner? (maps:get 'banner merged-opts 'true)))
       (if banner? (write (banner))))
     ;; Start REPL loop in new process
-    (spawn (lambda () (repl-loop merged-opts)))))
+    (spawn (lambda ()
+             ;; Initialize readline and history in the REPL process
+             (init-readline)
+             (xrepl-history:init merged-opts)
+             (repl-loop merged-opts)))))
 
 (defun pid ()
   (erlang:whereis (SERVER)))
