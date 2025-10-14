@@ -37,15 +37,20 @@
            (list (tuple 'packet 4)         ;; 4-byte length prefix
                  (tuple 'active 'once)))   ;; Flow control
 
-     (let ((state (make-protocol-state
-                    ref ref
-                    transport transport-mod
-                    socket socket
-                    session-id 'undefined
-                    authenticated 'false
-                    buffer #"")))
-       (error_logger:info_msg "New connection from ~p"
-                   (list (call transport-mod 'peername socket)))
+     ;; Detect if this is a UNIX socket connection
+     (let* ((peername (call transport-mod 'peername socket))
+            (is-unix? (case peername
+                        (`#(ok #(local ,_)) 'true)
+                        (_ 'false)))
+            (state (make-protocol-state
+                     ref ref
+                     transport transport-mod
+                     socket socket
+                     session-id 'undefined
+                     authenticated is-unix?  ;; UNIX sockets pre-authenticated
+                     buffer #"")))
+       (error_logger:info_msg "New connection from ~p (UNIX socket: ~p)"
+                   (list peername is-unix?))
        (message-loop state)))
 
     (`#(error ,reason)
@@ -160,7 +165,7 @@
          (error_logger:info_msg "Formatted value: ~p" (list value-str))
          (send-response message
                        `#m(status done
-                           value ,(list_to_binary value-str)
+                           value ,(unicode:characters_to_binary value-str)
                            session ,(list_to_binary session-id))
                        state)
          (set-protocol-state-session-id state session-id)))

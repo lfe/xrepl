@@ -110,8 +110,8 @@
   (let ((sup-flags #m(strategy one_for_one
                      intensity 10
                      period 60))
-        ;; Only start auth if network is enabled
-        (children (case (application:get_env 'xrepl 'network_enabled 'false)
+        ;; Only start auth if TCP is enabled (UNIX sockets use file permissions)
+        (children (case (application:get_env 'xrepl 'tcp_enabled 'false)
                     ('true (list (auth-child)))
                     ('false '()))))
     (tuple 'ok (tuple sup-flags children))))
