@@ -57,9 +57,15 @@ if [ -d "$XREPL_DEPS" ]; then
     done
 fi
 
-# Set up readline/history support
-# These flags enable history and tab completion
-ERL_FLAGS="-noshell -user lfe_init"
+# Set up Erlang VM flags
+ERL_FLAGS="-noshell"
+
+# Check if rlwrap is available for better readline support
+if command -v rlwrap >/dev/null 2>&1; then
+    USE_RLWRAP=true
+else
+    USE_RLWRAP=false
+fi
 
 # Parse command line arguments
 BANNER="true"
@@ -129,6 +135,14 @@ fi
 XREPL_OPTS="#{banner => $BANNER, history_enabled => $HISTORY_ENABLED, history_file => <<\"$HISTORY_FILE\">>}"
 
 # Start Erlang with xrepl
-exec erl $CODE_PATHS $ERL_FLAGS \
-    -eval "application:ensure_all_started(xrepl), xrepl:start($XREPL_OPTS)" \
-    "$@"
+if [ "$USE_RLWRAP" = "true" ]; then
+    # Use rlwrap for readline support (history, arrow keys, etc.)
+    exec rlwrap -H "$HISTORY_FILE" erl $CODE_PATHS $ERL_FLAGS \
+        -eval "application:ensure_all_started(xrepl), xrepl:start($XREPL_OPTS)" \
+        "$@"
+else
+    # No rlwrap available - arrow keys will show escape sequences
+    exec erl $CODE_PATHS $ERL_FLAGS \
+        -eval "application:ensure_all_started(xrepl), xrepl:start($XREPL_OPTS)" \
+        "$@"
+fi

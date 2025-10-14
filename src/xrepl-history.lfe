@@ -53,7 +53,7 @@
     Path to ~/.lfe-xrepl-history"
   (let ((home (case (os:getenv "HOME")
                 ('false "/tmp")
-                (h (binary_to_list h)))))
+                (h h))))
     (filename:join home ".lfe-xrepl-history")))
 
 (defun load (file)

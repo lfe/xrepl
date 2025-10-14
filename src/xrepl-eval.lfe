@@ -35,10 +35,10 @@
             (ff (lambda (term indent)
                   (lfe_io:prettyprint1 term 15 indent 80)))
             (error-str (lfe_lib:format_exception class reason stack sf ff 1)))
-       error-str)
+       (lists:flatten error-str))
      (catch
        ((tuple _ _ _)
-        (lfe_io:format1 "Error: ~p" (list reason)))))))
+        (lists:flatten (lfe_io:format1 "Error: ~p" (list reason))))))))
 
 ;;; ----------------
 ;;; Core functions
@@ -55,10 +55,12 @@
     #(value updated-env) on success
     #(error reason) on failure"
   ((form env)
+   (io:format "DEBUG eval-form: form=~p~n" (list form))
    (try
      ;; Macro expand the form
      (case (lfe_macro:expand_fileforms (list (tuple form 1)) env 'false 'true)
        (`#(ok ,eforms ,new-env ,warnings)
+        (io:format "DEBUG: expanded forms=~p~n" (list eforms))
         ;; Report warnings if any
         (if (not (== warnings '()))
           (list-warnings warnings))
@@ -129,6 +131,8 @@
 
   ;; General expression evaluation
   ((expr env)
+   (io:format "DEBUG eval-form-1: expr=~p~n" (list expr))
+   (io:format "DEBUG eval-form-1: env keys=~p~n" (list (lfe_env:get_vbindings env)))
    (let ((value (lfe_eval:expr expr env)))
      (tuple value env))))
 

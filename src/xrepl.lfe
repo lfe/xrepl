@@ -14,7 +14,7 @@
    (code_change 3))
   ;; API
   (export
-   (start 0)
+   (start 0) (start 1)
    (pid 0)
    (echo 1))
   ;; Utility
@@ -185,7 +185,10 @@
        (xrepl-io:print-value value))
       (`#(error ,reason)
        (io:put_chars "** ")
-       (io:put_chars reason)
+       ;; Reason might be an iolist, flatten it
+       (io:put_chars (if (is_binary reason)
+                       reason
+                       (list_to_binary (lists:flatten (io_lib:format "~s" (list reason))))))
        (io:nl)))
     (catch
       ((tuple class reason stack)
@@ -223,7 +226,7 @@
 
   Returns:
     Prompt string"
-  "lfe> ")
+  "\e[34mxrepl\e[1;33m> \e[0m")
 
 ;;; Private functions
 

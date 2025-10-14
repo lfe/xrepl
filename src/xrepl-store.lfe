@@ -199,5 +199,5 @@
   Future: Use proper UUID library."
   (let* ((ts (erlang:system_time 'microsecond))
          (rand (rand:uniform 1000000))
-         (id-str (lfe_io:format1 "session-~p-~p" (list ts rand))))
+         (id-str (lists:flatten (io_lib:format "session-~w-~w" (list ts rand)))))
     (list_to_atom id-str)))

@@ -23,13 +23,50 @@
     #(ok form) on successful read
     #(error eof) on end of file
     #(error reason) on parse error"
-  (case (lfe_io:read_line prompt)
-    (`#(ok ,form)
-     (tuple 'ok form))
+  (case (io:get_line prompt)
     ('eof
      (tuple 'error 'eof))
     (`#(error ,reason)
-     (tuple 'error reason))))
+     (tuple 'error reason))
+    (line
+     ;; Parse the line as an LFE expression
+     (if (is_list line)
+       (case (lfe_io:read_string line)
+         (`#(ok ,form)
+          (tuple 'ok form))
+         (`#(error ,_ ,_)
+          ;; Try to parse as an incomplete expression
+          (read-multiline prompt line))
+         ('eof
+          (tuple 'error 'eof)))
+       (tuple 'error 'invalid-input)))))
+
+(defun read-multiline (prompt acc)
+  "Continue reading lines for multi-line expressions.
+
+  Args:
+    prompt: Prompt string
+    acc: Accumulated input string
+
+  Returns:
+    #(ok form) or #(error reason)"
+  (case (io:get_line "... ")
+    ('eof
+     (tuple 'error 'eof))
+    (`#(error ,reason)
+     (tuple 'error reason))
+    (line
+     (if (is_list line)
+       (let ((new-acc (++ acc line)))
+         (case (lfe_io:read_string new-acc)
+           (`#(ok ,form)
+            (tuple 'ok form))
+           (`#(error ,_ ,_)
+            ;; Still incomplete, keep reading
+            (read-multiline prompt new-acc))
+           ('eof
+            (tuple 'error 'eof))))
+       (tuple 'error 'invalid-input)))))
 
 (defun print-value (value)
   "Pretty-print a value to stdout.
@@ -71,30 +108,33 @@
   Returns:
     Formatted error string"
   (try
-    ;; Use LFE's simplified error reporting with prettyprinting
-    (let* ((skip-frame? (lambda (frame)
-                          ;; Don't show xrepl or lfe_eval frames in stacktrace
-                          (case frame
-                            ;; Pre R15 format
-                            (`#(,mod ,_ ,_)
-                             (not (or (== mod 'lfe_eval)
-                                      (== mod 'xrepl-eval)
-                                      (== mod 'xrepl-session)
-                                      (== mod 'xrepl-io))))
-                            ;; R15 and later format
-                            (`#(,mod ,_ ,_ ,_)
-                             (not (or (== mod 'lfe_eval)
-                                      (== mod 'xrepl-eval)
-                                      (== mod 'xrepl-session)
-                                      (== mod 'xrepl-io))))
-                            (_ 'true))))
-           (format-term (lambda (term indent)
-                          ;; Pretty print terms with depth 15
-                          (lfe_io:prettyprint1 term 15 indent 80)))
-           (error-str (lfe_lib:format_exception class reason stack
-                                                skip-frame? format-term 1)))
-      error-str)
+    (if (andalso (is_list stack) (> (length stack) 0))
+      ;; Use LFE's simplified error reporting with prettyprinting
+      (let* ((skip-frame? (lambda (frame)
+                            ;; Don't show xrepl or lfe_eval frames in stacktrace
+                            (case frame
+                              ;; Pre R15 format
+                              (`#(,mod ,_ ,_)
+                               (not (or (== mod 'lfe_eval)
+                                        (== mod 'xrepl-eval)
+                                        (== mod 'xrepl-session)
+                                        (== mod 'xrepl-io))))
+                              ;; R15 and later format
+                              (`#(,mod ,_ ,_ ,_)
+                               (not (or (== mod 'lfe_eval)
+                                        (== mod 'xrepl-eval)
+                                        (== mod 'xrepl-session)
+                                        (== mod 'xrepl-io))))
+                              (_ 'true))))
+             (format-term (lambda (term indent)
+                            ;; Pretty print terms with depth 15
+                            (lfe_io:prettyprint1 term 15 indent 80)))
+             (error-str (lfe_lib:format_exception class reason stack
+                                                  skip-frame? format-term 1)))
+        (lists:flatten error-str))
+      ;; Simple error without stack trace
+      (lists:flatten (lfe_io:format1 "~p: ~p" (list class reason))))
     (catch
       ;; Fallback if formatting fails
       ((tuple _ _ _)
-       (lfe_io:format1 "~p: ~p" (list class reason))))))
+       (lists:flatten (lfe_io:format1 "~p: ~p" (list class reason)))))))
