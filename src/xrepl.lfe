@@ -146,27 +146,41 @@
 
   Args:
     opts: Options map"
-  (repl-loop (get-or-create-default-session) opts))
+  (let ((session-id (get-or-create-default-session opts)))
+    ;; Set as current session
+    (xrepl-session-manager:set-current session-id)
+    ;; Start reading
+    (repl-loop-with-session session-id opts)))
 
-(defun repl-loop (session-id opts)
+(defun repl-loop-with-session (session-id opts)
   "REPL loop with specific session.
 
   Args:
     session-id: Session identifier to use
     opts: Options map
 
-  Reads expressions, evaluates them, and prints results."
-  ;; Main loop
-  (case (xrepl-io:read-expression (prompt))
-    (`#(ok ,form)
-     (handle-form form session-id)
-     (repl-loop session-id opts))
-    (`#(error eof)
-     (io:format "~n")
-     'ok)
-    (`#(error ,reason)
-     (xrepl-io:print-error 'error reason '())
-     (repl-loop session-id opts))))
+  Reads expressions, evaluates them, and prints results.
+  Handles session switching dynamically."
+  ;; Check if session has changed (user might have switched)
+  (let ((current-session (xrepl-session-manager:get-current)))
+    (case current-session
+      ('no-session
+       ;; No current session, create one
+       (let ((new-session (get-or-create-default-session opts)))
+         (xrepl-session-manager:set-current new-session)
+         (repl-loop-with-session new-session opts)))
+      (_
+       ;; Main loop with current session
+       (case (xrepl-io:read-expression (prompt current-session opts))
+         (`#(ok ,form)
+          (handle-form form current-session)
+          (repl-loop-with-session current-session opts))
+         (`#(error eof)
+          (io:format "~n")
+          'ok)
+         (`#(error ,reason)
+          (xrepl-io:print-error 'error reason '())
+          (repl-loop-with-session current-session opts)))))))
 
 (defun handle-form (form session-id)
   "Handle evaluation of a form.
@@ -204,29 +218,61 @@
     String representation"
   (lfe_io:print1 form))
 
-(defun get-or-create-default-session ()
+(defun get-or-create-default-session (opts)
   "Get existing session or create a new default session.
 
+  Args:
+    opts: Options map
+
   Returns:
-    Session ID (atom)"
-  (case (xrepl-store:list-sessions)
+    Session ID"
+  (case (xrepl-session-manager:list)
     ('()
-     ;; No sessions, create default
-     (case (xrepl-store:create-session #m())
+     ;; No sessions exist, create default
+     (case (xrepl-session-manager:create (map 'name "default"))
        (`#(ok ,session-id)
-        ;; Start the session process
-        (xrepl-session-sup:start-session session-id)
-        session-id)))
+        session-id)
+       (`#(error ,reason)
+        (logger:error "Failed to create default session: ~p" (list reason))
+        (erlang:error 'cannot-create-session))))
     ((cons session-id _)
-     ;; Use first session
+     ;; Use first existing session
      session-id)))
 
-(defun prompt ()
-  "Generate the REPL prompt.
+(defun prompt (session-id opts)
+  "Generate the REPL prompt, optionally showing session info.
+
+  Args:
+    session-id: Current session ID
+    opts: Options map
 
   Returns:
     Prompt string"
-  "\e[34mxrepl\e[1;33m> \e[0m")
+  (let ((show-session? (maps:get 'show-session-in-prompt opts 'false)))
+    (if show-session?
+      ;; Show session name if available
+      (case (get-session-name session-id)
+        ('undefined
+         "\e[34mxrepl\e[1;33m> \e[0m")
+        (name
+         (++ "\e[34mxrepl[\e[32m" name "\e[34m]\e[1;33m> \e[0m")))
+      ;; Default prompt
+      "\e[34mxrepl\e[1;33m> \e[0m")))
+
+(defun get-session-name (session-id)
+  "Get session name or return undefined.
+
+  Args:
+    session-id: Session identifier
+
+  Returns:
+    Session name or undefined"
+  (case (xrepl-session-manager:get-info session-id)
+    (`#(ok ,info)
+     (let ((metadata (maps:get 'metadata info (map))))
+       (maps:get 'name metadata 'undefined)))
+    (_
+     'undefined)))
 
 ;;; Private functions
 

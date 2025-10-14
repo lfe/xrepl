@@ -10,7 +10,10 @@
    (add-shell-functions 1)            ;; Add shell functions
    (add-shell-macros 1)               ;; Add shell macros
    (get-binding 2)                    ;; Get variable binding
-   (add-binding 3)))                  ;; Add variable binding
+   (add-binding 3)                    ;; Add variable binding
+   (get-bindings 1)                   ;; Get all variable bindings
+   (xrepl-help 0)                     ;; Display xrepl help
+   (list-history 0)))                 ;; Display command history
 
 ;;; ----------------
 ;;; Core functions
@@ -120,11 +123,11 @@
           (tuple 'epp 2 '(lambda (e d) (: lfe_xrepl epp e d)))
 
           ;; h/0-3, help/0 - help and documentation
-          (tuple 'h 0 '(lambda () (: lfe_xrepl help)))
+          (tuple 'h 0 '(lambda () (xrepl-env:xrepl-help)))
           (tuple 'h 1 '(lambda (m) (: lfe_xrepl h m)))
           (tuple 'h 2 '(lambda (m f) (: lfe_xrepl h m f)))
           (tuple 'h 3 '(lambda (m f a) (: lfe_xrepl h m f a)))
-          (tuple 'help 0 '(lambda () (: lfe_xrepl help)))
+          (tuple 'help 0 '(lambda () (xrepl-env:xrepl-help)))
 
           ;; i/0-3 - system information
           (tuple 'i 0 '(lambda () (: lfe_xrepl i)))
@@ -168,10 +171,32 @@
           (tuple 'uptime 0 '(lambda () (: lfe_xrepl uptime)))
 
           ;; history/0 - show command history
-          (tuple 'history 0 '(lambda () (list-history)))
+          (tuple 'history 0 '(lambda () (xrepl-env:list-history)))
 
           ;; clear-history/0 - clear command history
-          (tuple 'clear-history 0 '(lambda () (xrepl-history:clear) 'ok)))))
+          (tuple 'clear-history 0 '(lambda () (xrepl-history:clear) 'ok))
+
+          ;; Session management functions
+          ;; sessions/0 - list all sessions
+          (tuple 'sessions 0 '(lambda () (xrepl-commands:sessions)))
+
+          ;; new-session/0 - create new session
+          (tuple 'new-session 0 '(lambda () (xrepl-commands:new-session)))
+
+          ;; new-session/1 - create new session with name
+          (tuple 'new-session 1 '(lambda (name) (xrepl-commands:new-session name)))
+
+          ;; switch-session/1 - switch to session
+          (tuple 'switch-session 1 '(lambda (id) (xrepl-commands:switch-session id)))
+
+          ;; close-session/1 - close session
+          (tuple 'close-session 1 '(lambda (id) (xrepl-commands:close-session id)))
+
+          ;; current-session/0 - show current session
+          (tuple 'current-session 0 '(lambda () (xrepl-commands:current-session)))
+
+          ;; session-info/1 - show session info
+          (tuple 'session-info 1 '(lambda (id) (xrepl-commands:session-info id))))))
     ;; Add all functions to environment
     (lists:foldl
      (lambda (func-def e)
@@ -193,6 +218,41 @@
        (+ idx 1))
      1
      commands))
+  'ok)
+
+(defun xrepl-help ()
+  "Display xrepl help with session management commands.
+
+  Returns:
+    ok"
+  ;; First show standard LFE help
+  (: lfe_xrepl help)
+  ;; Then add xrepl-specific help
+  (io:format "~n\e[1;36m=== xrepl Extended Commands ===\e[0m~n~n")
+  (io:format "\e[1mSession Management:\e[0m~n")
+  (io:format "  (sessions)              - List all sessions~n")
+  (io:format "  (new-session)           - Create a new session~n")
+  (io:format "  (new-session \"name\")    - Create a named session~n")
+  (io:format "  (switch-session id)     - Switch to session by ID or name~n")
+  (io:format "  (current-session)       - Show current session info~n")
+  (io:format "  (session-info id)       - Show detailed session info~n")
+  (io:format "  (close-session id)      - Close a session~n~n")
+  (io:format "\e[1mHistory:\e[0m~n")
+  (io:format "  (history)               - Show command history~n")
+  (io:format "  (clear-history)         - Clear command history~n~n")
+  (io:format "\e[1mSession Features:\e[0m~n")
+  (io:format "  - Each session has its own isolated environment~n")
+  (io:format "  - Variables in one session don't affect others~n")
+  (io:format "  - Sessions persist their state automatically~n")
+  (io:format "  - Sessions timeout after 1 hour of inactivity~n~n")
+  (io:format "\e[1mExamples:\e[0m~n")
+  (io:format "  > (new-session \"work\")        ; Create a work session~n")
+  (io:format "  > (set x 42)                   ; Set variable in work session~n")
+  (io:format "  > (new-session \"scratch\")     ; Create another session~n")
+  (io:format "  > x                            ; Error: x is undefined here~n")
+  (io:format "  > (switch-session \"work\")     ; Switch back to work~n")
+  (io:format "  > x                            ; Returns: 42~n")
+  (io:format "  > (sessions)                   ; List all sessions~n~n")
   'ok)
 
 (defun add-shell-macros (env)
@@ -279,3 +339,13 @@
   Returns:
     Updated environment"
   (lfe_env:add_vbinding name value env))
+
+(defun get-bindings (env)
+  "Get all variable bindings from the environment.
+
+  Args:
+    env: LFE environment
+
+  Returns:
+    List of #(name value) tuples"
+  (lfe_env:get_vbindings env))
