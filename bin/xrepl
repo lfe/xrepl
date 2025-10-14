@@ -1,0 +1,134 @@
+#!/bin/sh
+# xrepl - Start the xrepl REPL
+
+usage() {
+    cat << EOF
+Usage: xrepl [OPTIONS]
+
+Options:
+    -h, --help          Show this help message
+    -v, --version       Show version information
+    --no-banner         Start without banner
+    --no-history        Disable history file
+    --history FILE      Use custom history file
+    --node NAME         Start as distributed node
+    --cookie COOKIE     Set distribution cookie
+
+Environment Variables:
+    XREPL_ERL_FLAGS     Additional Erlang VM flags
+    XREPL_HISTORY       History file location (default: ~/.lfe-xrepl-history)
+
+Examples:
+    xrepl                           # Start interactive REPL
+    xrepl --no-banner               # Start without banner
+    xrepl --node mynode@localhost   # Start as distributed node
+EOF
+    exit 0
+}
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Find the xrepl application
+if [ -d "$PROJECT_ROOT/_build/default/lib/xrepl" ]; then
+    # Running from a built project
+    XREPL_EBIN="$PROJECT_ROOT/_build/default/lib/xrepl/ebin"
+    XREPL_DEPS="$PROJECT_ROOT/_build/default/lib"
+elif [ -d "$PROJECT_ROOT/ebin" ]; then
+    # Running from development
+    XREPL_EBIN="$PROJECT_ROOT/ebin"
+    XREPL_DEPS="$PROJECT_ROOT/_build/default/lib"
+else
+    echo "Error: Cannot find xrepl application"
+    echo "Please run 'rebar3 compile' first"
+    exit 1
+fi
+
+# Build the code path
+CODE_PATHS="-pa $XREPL_EBIN"
+
+# Add all dependencies to the path
+if [ -d "$XREPL_DEPS" ]; then
+    for dep in "$XREPL_DEPS"/*/ebin; do
+        if [ -d "$dep" ]; then
+            CODE_PATHS="$CODE_PATHS -pa $dep"
+        fi
+    done
+fi
+
+# Set up readline/history support
+# These flags enable history and tab completion
+ERL_FLAGS="-noshell -user lfe_init"
+
+# Parse command line arguments
+BANNER="true"
+HISTORY_ENABLED="true"
+HISTORY_FILE="${XREPL_HISTORY:-$HOME/.lfe-xrepl-history}"
+NODE_NAME=""
+COOKIE=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h|--help)
+            usage
+            ;;
+        -v|--version)
+            erl $CODE_PATHS -noshell -eval "application:load(xrepl), {ok, Vsn} = application:get_key(xrepl, vsn), io:format(\"xrepl ~s~n\", [Vsn]), halt()."
+            exit 0
+            ;;
+        --no-banner)
+            BANNER="false"
+            shift
+            ;;
+        --no-history)
+            HISTORY_ENABLED="false"
+            shift
+            ;;
+        --history)
+            HISTORY_FILE="$2"
+            shift 2
+            ;;
+        --node)
+            NODE_NAME="$2"
+            shift 2
+            ;;
+        --cookie)
+            COOKIE="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
+done
+
+# Build node flags
+if [ -n "$NODE_NAME" ]; then
+    ERL_FLAGS="$ERL_FLAGS -sname $NODE_NAME"
+fi
+
+if [ -n "$COOKIE" ]; then
+    ERL_FLAGS="$ERL_FLAGS -setcookie $COOKIE"
+fi
+
+# Check OTP version for shell history support
+if erl -eval "case list_to_integer(erlang:system_info(otp_release)) of N when N >= 26 -> halt(0); _ -> halt(1) end." -noshell 2>/dev/null; then
+    # OTP 26 or later - enable built-in shell history
+    ERL_FLAGS="$ERL_FLAGS +pc unicode -kernel shell_history enabled"
+fi
+
+# Allow passing additional Erlang flags
+if [ -n "$XREPL_ERL_FLAGS" ]; then
+    ERL_FLAGS="$ERL_FLAGS $XREPL_ERL_FLAGS"
+fi
+
+# Build xrepl start options map
+# Note: Using Erlang syntax for map since we're passing to -eval
+XREPL_OPTS="#{banner => $BANNER, history_enabled => $HISTORY_ENABLED, history_file => <<\"$HISTORY_FILE\">>}"
+
+# Start Erlang with xrepl
+exec erl $CODE_PATHS $ERL_FLAGS \
+    -eval "application:ensure_all_started(xrepl), xrepl:start($XREPL_OPTS)" \
+    "$@"
