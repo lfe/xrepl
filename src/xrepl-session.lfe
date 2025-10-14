@@ -126,12 +126,18 @@
 
 (defun handle_call
   "Handle synchronous calls."
-  ;; Evaluate a form
-  ((`#(eval ,form) from state)
-   ;; Send to evaluator and wait for response
-   (! (session-state-evaluator state) (tuple 'eval form (self)))
-   ;; Store the reply-to and don't reply yet
-   (tuple 'noreply (set-session-state-eval-pending state from)))
+  ;; Evaluate a form (can be either a parsed form or a string to parse)
+  ((`#(eval ,form-or-string) from state)
+   ;; Parse if it's a string, otherwise use as-is
+   (case (prepare-form form-or-string)
+     (`#(ok ,form)
+      ;; Send to evaluator and wait for response
+      (! (session-state-evaluator state) (tuple 'eval form (self)))
+      ;; Store the reply-to and don't reply yet
+      (tuple 'noreply (set-session-state-eval-pending state from)))
+     (`#(error ,reason)
+      ;; Parse error, reply immediately
+      (tuple 'reply (tuple 'error reason) state))))
 
   ;; Get environment
   (('get-env _from state)
@@ -237,6 +243,44 @@
 (defun code_change (_old-version state _extra)
   "Handle code changes."
   (tuple 'ok state))
+
+;;; ----------------
+;;; Form preparation
+;;; ----------------
+
+(defun prepare-form (form-or-string)
+  "Prepare a form for evaluation.
+
+  If input is a string, parse it into an LFE form.
+  If input is already a form, return it as-is.
+
+  Args:
+    form-or-string: Either a string to parse or an already-parsed form
+
+  Returns:
+    #(ok form) or #(error reason)"
+  (if (is_list form-or-string)
+    ;; Check if it's a string (list of integers) or a form (list structure)
+    (case form-or-string
+      ('()
+       ;; Empty list is a valid form
+       (tuple 'ok '()))
+      ((cons first _)
+       (if (is_integer first)
+         ;; It's a string (list of character codes), parse it
+         (case (lfe_io:read_string form-or-string)
+           (`#(ok ,forms)
+            (case forms
+              ((cons form _) (tuple 'ok form))
+              ('() (tuple 'error "Empty input"))))
+           (`#(error ,_ ,_)
+            (tuple 'error "Parse error"))
+           ('eof
+            (tuple 'error "Unexpected EOF")))
+         ;; It's a form (list structure), use as-is
+         (tuple 'ok form-or-string))))
+    ;; Not a list, must be an atom or other term - use as-is
+    (tuple 'ok form-or-string)))
 
 ;;; ----------------
 ;;; Evaluator process

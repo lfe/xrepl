@@ -38,6 +38,7 @@
 (defun init (_args)
   (let ((children (list (store-child)
                         (session-sup-child)
+                        (net-sup-child)
                         (server-child))))
     `#(ok #(,(sup-flags) ,children))))
 
@@ -70,6 +71,15 @@
       shutdown infinity
       type supervisor
       modules (xrepl-session-sup)))
+
+(defun net-sup-child ()
+  "Child spec for network supervisor."
+  `#M(id xrepl-net-sup
+      start #(xrepl-net-sup start_link ())
+      restart permanent
+      shutdown infinity
+      type supervisor
+      modules (xrepl-net-sup)))
 
 (defun server-child ()
   "Child spec for main xrepl server."

@@ -1,86 +1,123 @@
 #!/bin/sh
-# xrepl - Start the xrepl REPL
+# xrepl - Unified LFE REPL with network support
 
-usage() {
+# Show help and exit
+show_help() {
     cat << EOF
-Usage: xrepl [OPTIONS]
+xrepl - LFE REPL with network support
 
-Options:
+USAGE:
+    xrepl [MODE] [OPTIONS]
+
+MODES:
+    (default)           Standalone mode - local stdio REPL (no network)
+    --server            Server mode - headless listener (no local REPL)
+    --connect TARGET    Client mode - connect to existing server
+    --hybrid            Hybrid mode - server + client (network-enabled local REPL)
+
+SERVER OPTIONS (for --server and --hybrid modes):
+    --tcp               Enable TCP listener
+    --tcp-port PORT     TCP port (default: 7888)
+    --tcp-host HOST     TCP host (default: 127.0.0.1)
+    --unix-socket PATH  UNIX socket path (default: ~/.xrepl/repl.sock)
+    --no-unix           Disable UNIX socket
+
+CLIENT OPTIONS (for --connect mode):
+    TARGET              Connection target:
+                          - HOST:PORT for TCP (e.g., localhost:7888)
+                          - unix:PATH for UNIX socket (e.g., unix:~/.xrepl/repl.sock)
+    --token TOKEN       Authentication token (required for TCP)
+    --token-file FILE   Read token from file (default: ~/.xrepl/auth.token)
+
+GENERAL OPTIONS:
+    --no-banner         Disable startup banner
     -h, --help          Show this help message
     -v, --version       Show version information
-    --no-banner         Start without banner
     --no-history        Disable history file
     --history FILE      Use custom history file
     --node NAME         Start as distributed node
     --cookie COOKIE     Set distribution cookie
 
-Environment Variables:
+ENVIRONMENT VARIABLES:
     XREPL_ERL_FLAGS     Additional Erlang VM flags
     XREPL_HISTORY       History file location (default: ~/.lfe-xrepl-history)
 
-Examples:
-    xrepl                           # Start interactive REPL
-    xrepl --no-banner               # Start without banner
-    xrepl --node mynode@localhost   # Start as distributed node
+EXAMPLES:
+    # Standalone - traditional local REPL
+    xrepl
+
+    # Server - headless listener for remote connections
+    xrepl --server --tcp --tcp-port 7888
+
+    # Client - connect to remote server
+    xrepl --connect localhost:7888 --token abc123...
+
+    # Hybrid - local REPL with network enabled for IDE/tools
+    xrepl --hybrid --tcp
+
+    # UNIX socket server
+    xrepl --server --unix-socket /tmp/repl.sock
+
+    # UNIX socket client
+    xrepl --connect unix:/tmp/repl.sock
+
+MODES EXPLAINED:
+    Standalone: No network, direct evaluation (default, Phase 1/2 behavior)
+    Server:     Network only, no local REPL (for remote access)
+    Client:     Connect to existing server (remote or local)
+    Hybrid:     Both server and client (appears local, network-enabled)
+
+SECURITY:
+    - Token authentication required for TCP connections
+    - Token displayed on server startup and saved to ~/.xrepl/auth.token
+    - UNIX sockets use file permissions (0600 owner-only)
+    - Default TCP binding: 127.0.0.1 (localhost only)
+    - For remote access, use SSH tunneling:
+      ssh -L 7888:localhost:7888 user@host
+
 EOF
     exit 0
 }
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-
-# Find the xrepl application
-if [ -d "$PROJECT_ROOT/_build/default/lib/xrepl" ]; then
-    # Running from a built project
-    XREPL_EBIN="$PROJECT_ROOT/_build/default/lib/xrepl/ebin"
-    XREPL_DEPS="$PROJECT_ROOT/_build/default/lib"
-elif [ -d "$PROJECT_ROOT/ebin" ]; then
-    # Running from development
-    XREPL_EBIN="$PROJECT_ROOT/ebin"
-    XREPL_DEPS="$PROJECT_ROOT/_build/default/lib"
-else
-    echo "Error: Cannot find xrepl application"
-    echo "Please run 'rebar3 compile' first"
-    exit 1
-fi
-
-# Build the code path
-CODE_PATHS="-pa $XREPL_EBIN"
-
-# Add all dependencies to the path
-if [ -d "$XREPL_DEPS" ]; then
-    for dep in "$XREPL_DEPS"/*/ebin; do
-        if [ -d "$dep" ]; then
-            CODE_PATHS="$CODE_PATHS -pa $dep"
-        fi
-    done
-fi
-
-# Set up Erlang VM flags
-ERL_FLAGS="-noshell"
-
-# Check if rlwrap is available for better readline support
-if command -v rlwrap >/dev/null 2>&1; then
-    USE_RLWRAP=true
-else
-    USE_RLWRAP=false
-fi
-
-# Parse command line arguments
+# Default values
+MODE="standalone"
+NETWORK_ENABLED="false"
+TCP_ENABLED="false"
+TCP_PORT="7888"
+TCP_HOST="127.0.0.1"
+UNIX_ENABLED="true"
+UNIX_SOCKET="$HOME/.xrepl/repl.sock"
+CONNECT_TARGET=""
+TOKEN=""
+TOKEN_FILE="$HOME/.xrepl/auth.token"
 BANNER="true"
 HISTORY_ENABLED="true"
 HISTORY_FILE="${XREPL_HISTORY:-$HOME/.lfe-xrepl-history}"
 NODE_NAME=""
 COOKIE=""
+ERL_FLAGS="-noshell"
 
+# Parse arguments
 while [ $# -gt 0 ]; do
     case "$1" in
         -h|--help)
-            usage
+            show_help
             ;;
         -v|--version)
-            erl $CODE_PATHS -noshell -eval "application:load(xrepl), {ok, Vsn} = application:get_key(xrepl, vsn), io:format(\"xrepl ~s~n\", [Vsn]), halt()."
+            # Need to find erl and code paths first
+            SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+            PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+            if [ -d "$PROJECT_ROOT/_build/default/lib/xrepl" ]; then
+                XREPL_EBIN="$PROJECT_ROOT/_build/default/lib/xrepl/ebin"
+            elif [ -d "$PROJECT_ROOT/ebin" ]; then
+                XREPL_EBIN="$PROJECT_ROOT/ebin"
+            fi
+            if [ -n "$XREPL_EBIN" ]; then
+                erl -pa "$XREPL_EBIN" -noshell -eval "application:load(xrepl), {ok, Vsn} = application:get_key(xrepl, vsn), io:format(\"xrepl ~s~n\", [Vsn]), halt()."
+            else
+                echo "Error: Cannot find xrepl application"
+                exit 1
+            fi
             exit 0
             ;;
         --no-banner)
@@ -103,11 +140,97 @@ while [ $# -gt 0 ]; do
             COOKIE="$2"
             shift 2
             ;;
+
+        # Mode selection
+        --server)
+            MODE="server"
+            NETWORK_ENABLED="true"
+            shift
+            ;;
+        --connect)
+            MODE="client"
+            CONNECT_TARGET="$2"
+            shift 2
+            ;;
+        --hybrid)
+            MODE="hybrid"
+            NETWORK_ENABLED="true"
+            shift
+            ;;
+
+        # Server options
+        --tcp)
+            TCP_ENABLED="true"
+            shift
+            ;;
+        --tcp-port)
+            TCP_PORT="$2"
+            shift 2
+            ;;
+        --tcp-host)
+            TCP_HOST="$2"
+            shift 2
+            ;;
+        --unix-socket)
+            UNIX_SOCKET="$2"
+            shift 2
+            ;;
+        --no-unix)
+            UNIX_ENABLED="false"
+            shift
+            ;;
+
+        # Client options
+        --token)
+            TOKEN="$2"
+            shift 2
+            ;;
+        --token-file)
+            TOKEN_FILE="$2"
+            shift 2
+            ;;
+
         *)
-            echo "Unknown option: $1"
-            usage
+            echo "Error: Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
             ;;
     esac
+done
+
+# Validate mode-specific requirements
+case "$MODE" in
+    client)
+        if [ -z "$CONNECT_TARGET" ]; then
+            echo "Error: --connect requires a target (HOST:PORT or unix:PATH)"
+            exit 1
+        fi
+        ;;
+esac
+
+# Find xrepl application
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if [ -d "$PROJECT_ROOT/_build/default/lib/xrepl" ]; then
+    XREPL_EBIN="$PROJECT_ROOT/_build/default/lib/xrepl/ebin"
+    XREPL_DEPS="$PROJECT_ROOT/_build/default/lib"
+elif [ -d "$PROJECT_ROOT/ebin" ]; then
+    # Running from development
+    XREPL_EBIN="$PROJECT_ROOT/ebin"
+    XREPL_DEPS="$PROJECT_ROOT/_build/default/lib"
+else
+    echo "Error: Cannot find xrepl application"
+    echo "Run 'rebar3 compile' first"
+    exit 1
+fi
+
+# Build code paths
+CODE_PATHS="-pa $XREPL_EBIN"
+for dep in "$XREPL_DEPS"/*/ebin; do
+    if [ -d "$dep" ]; then
+        CODE_PATHS="$CODE_PATHS -pa $dep"
+    fi
 done
 
 # Build node flags
@@ -131,18 +254,162 @@ if [ -n "$XREPL_ERL_FLAGS" ]; then
 fi
 
 # Build xrepl start options map
-# Note: Using Erlang syntax for map since we're passing to -eval
 XREPL_OPTS="#{banner => $BANNER, history_enabled => $HISTORY_ENABLED, history_file => <<\"$HISTORY_FILE\">>}"
 
-# Start Erlang with xrepl
-if [ "$USE_RLWRAP" = "true" ]; then
-    # Use rlwrap for readline support (history, arrow keys, etc.)
-    exec rlwrap -H "$HISTORY_FILE" erl $CODE_PATHS $ERL_FLAGS \
-        -eval "application:ensure_all_started(xrepl), xrepl:start($XREPL_OPTS)" \
-        "$@"
+# Check if rlwrap is available for better readline support
+if command -v rlwrap >/dev/null 2>&1; then
+    HAS_RLWRAP=true
 else
-    # No rlwrap available - arrow keys will show escape sequences
-    exec erl $CODE_PATHS $ERL_FLAGS \
-        -eval "application:ensure_all_started(xrepl), xrepl:start($XREPL_OPTS)" \
-        "$@"
+    HAS_RLWRAP=false
 fi
+
+# Mode-specific startup
+case "$MODE" in
+    standalone)
+        # Traditional local REPL (Phase 1/2 behavior)
+        if [ "$HAS_RLWRAP" = "true" ]; then
+            exec rlwrap -H "$HISTORY_FILE" erl $CODE_PATHS $ERL_FLAGS \
+                -eval "application:ensure_all_started(xrepl), xrepl:start($XREPL_OPTS)" \
+                "$@"
+        else
+            exec erl $CODE_PATHS $ERL_FLAGS \
+                -eval "application:ensure_all_started(xrepl), xrepl:start($XREPL_OPTS)" \
+                "$@"
+        fi
+        ;;
+
+    server)
+        # Headless server mode
+        exec erl $CODE_PATHS -noshell -noinput \
+            -eval "
+application:load(xrepl),
+application:set_env(xrepl, network_enabled, $NETWORK_ENABLED),
+application:set_env(xrepl, tcp_enabled, $TCP_ENABLED),
+application:set_env(xrepl, tcp_port, $TCP_PORT),
+application:set_env(xrepl, tcp_host, \"$TCP_HOST\"),
+application:set_env(xrepl, unix_enabled, $UNIX_ENABLED),
+application:set_env(xrepl, unix_socket, \"$UNIX_SOCKET\"),
+application:ensure_all_started(xrepl),
+receive after infinity -> ok end"
+        ;;
+
+    client)
+        # Client mode - connect to existing server
+        # Parse target
+        case "$CONNECT_TARGET" in
+            unix:*)
+                # UNIX socket
+                SOCKET_PATH="${CONNECT_TARGET#unix:}"
+                CONNECT_OPTS="#{socket => <<\"$SOCKET_PATH\">>}"
+                ;;
+            *:*)
+                # TCP
+                HOST="${CONNECT_TARGET%:*}"
+                PORT="${CONNECT_TARGET#*:}"
+
+                # Load token if needed
+                if [ -z "$TOKEN" ]; then
+                    if [ -f "$TOKEN_FILE" ]; then
+                        TOKEN=$(cat "$TOKEN_FILE")
+                    else
+                        echo "Error: Token required for TCP connection"
+                        echo "Provide token with --token or --token-file"
+                        exit 1
+                    fi
+                fi
+
+                CONNECT_OPTS="#{host => \"$HOST\", port => $PORT, token => \"$TOKEN\"}"
+                ;;
+            *)
+                echo "Error: Invalid target format: $CONNECT_TARGET"
+                echo "Use HOST:PORT for TCP or unix:PATH for UNIX socket"
+                exit 1
+                ;;
+        esac
+
+        if [ "$HAS_RLWRAP" = "true" ]; then
+            exec rlwrap -H "$HISTORY_FILE" erl $CODE_PATHS $ERL_FLAGS \
+                -eval "
+case 'xrepl-client':connect($CONNECT_OPTS) of
+    {ok, Conn} ->
+        'xrepl-client-shell':start(Conn),
+        halt(0);
+    {error, Reason} ->
+        io:format(\"Connection failed: ~p~n\", [Reason]),
+        halt(1)
+end." \
+                "$@"
+        else
+            exec erl $CODE_PATHS $ERL_FLAGS \
+                -eval "
+case 'xrepl-client':connect($CONNECT_OPTS) of
+    {ok, Conn} ->
+        'xrepl-client-shell':start(Conn),
+        halt(0);
+    {error, Reason} ->
+        io:format(\"Connection failed: ~p~n\", [Reason]),
+        halt(1)
+end." \
+                "$@"
+        fi
+        ;;
+
+    hybrid)
+        # Hybrid mode - start server + client
+        if [ "$HAS_RLWRAP" = "true" ]; then
+            exec rlwrap -H "$HISTORY_FILE" erl $CODE_PATHS $ERL_FLAGS \
+                -eval "
+application:load(xrepl),
+application:set_env(xrepl, network_enabled, $NETWORK_ENABLED),
+application:set_env(xrepl, tcp_enabled, $TCP_ENABLED),
+application:set_env(xrepl, tcp_port, $TCP_PORT),
+application:set_env(xrepl, tcp_host, \"$TCP_HOST\"),
+application:set_env(xrepl, unix_enabled, $UNIX_ENABLED),
+application:set_env(xrepl, unix_socket, \"$UNIX_SOCKET\"),
+application:ensure_all_started(xrepl),
+timer:sleep(500),
+Token = 'xrepl-auth':'get-token'(),
+ConnOpts = case $TCP_ENABLED of
+    true -> #{host => \"$TCP_HOST\", port => $TCP_PORT, token => list_to_binary(Token)};
+    false -> #{socket => <<\"$UNIX_SOCKET\">>}
+end,
+case 'xrepl-client':connect(ConnOpts) of
+    {ok, Conn} ->
+        io:format(\"~nHybrid mode: Local REPL connected to network server~n\"),
+        io:format(\"Other clients can connect using displayed token~n~n\"),
+        'xrepl-client-shell':start(Conn);
+    {error, Reason} ->
+        io:format(\"Failed to connect client to server: ~p~n\", [Reason]),
+        halt(1)
+end." \
+                "$@"
+        else
+            exec erl $CODE_PATHS $ERL_FLAGS \
+                -eval "
+application:load(xrepl),
+application:set_env(xrepl, network_enabled, $NETWORK_ENABLED),
+application:set_env(xrepl, tcp_enabled, $TCP_ENABLED),
+application:set_env(xrepl, tcp_port, $TCP_PORT),
+application:set_env(xrepl, tcp_host, \"$TCP_HOST\"),
+application:set_env(xrepl, unix_enabled, $UNIX_ENABLED),
+application:set_env(xrepl, unix_socket, \"$UNIX_SOCKET\"),
+application:ensure_all_started(xrepl),
+timer:sleep(500),
+Token = 'xrepl-auth':'get-token'(),
+ConnOpts = case $TCP_ENABLED of
+    true -> #{host => \"$TCP_HOST\", port => $TCP_PORT, token => list_to_binary(Token)};
+    false -> #{socket => <<\"$UNIX_SOCKET\">>}
+end,
+case 'xrepl-client':connect(ConnOpts) of
+    {ok, Conn} ->
+        io:format(\"~nHybrid mode: Local REPL connected to network server~n\"),
+        io:format(\"Other clients can connect using displayed token~n~n\"),
+        'xrepl-client-shell':start(Conn);
+    {error, Reason} ->
+        io:format(\"Failed to connect client to server: ~p~n\", [Reason]),
+        halt(1)
+end." \
+                "$@"
+        fi
+        ;;
+esac

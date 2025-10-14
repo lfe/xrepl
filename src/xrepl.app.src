@@ -1,14 +1,35 @@
 {application, 'xrepl', [
-    {description, "An experimental, general purpose LFE REPL"},
-    {vsn, "0.1.0"},
+    {description, "An experimental, general purpose LFE REPL with network support"},
+    {vsn, "0.2.0"},
     {registered, []},
     {mod, {'xrepl-app', []}},
     {applications, [
         kernel,
         stdlib,
+        crypto,
+        ranch,
+        msgpack,
         mnkv
     ]},
-    {env,[]},
+    {env,[
+        % Network configuration
+        {network_enabled, false},
+        {tcp_enabled, false},
+        {tcp_port, 7888},
+        {tcp_host, "127.0.0.1"},
+        {tcp_num_acceptors, 10},
+        {unix_enabled, true},
+        {unix_socket, "~/.xrepl/repl.sock"},
+
+        % Security
+        {require_auth, true},
+        {rate_limit, 100},
+        {max_connections, 1000},
+
+        % Existing config
+        {history_enabled, true},
+        {history_file, "~/.lfe-xrepl-history"}
+    ]},
     {modules, []},
 
     %% Package metadata:

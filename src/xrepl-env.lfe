@@ -13,6 +13,9 @@
    (add-binding 3)                    ;; Add variable binding
    (get-bindings 1)                   ;; Get all variable bindings
    (xrepl-help 0)                     ;; Display xrepl help
+   (help-text 0)                      ;; Get combined help text
+   (lfe-help-text 0)                  ;; Get LFE help text
+   (xrepl-help-text 0)                ;; Get xrepl-specific help text
    (list-history 0)))                 ;; Display command history
 
 ;;; ----------------
@@ -226,42 +229,114 @@
      commands))
   'ok)
 
+(defun lfe-help-text ()
+  "Get LFE help text as a string.
+
+  Returns:
+    Binary string containing the LFE help text"
+  #b("\nLFE shell built-in functions\n\n"
+     "(c file)       -- compile and load code in <file>\n"
+     "(cd dir)       -- change working directory to <dir>\n"
+     "(clear)        -- clear the REPL output\n"
+     "(doc mod)      -- documentation of a module\n"
+     "(doc mod:mac)  -- documentation of a macro\n"
+     "(doc m:f/a)    -- documentation of a function\n"
+     "(ec file)      -- compile and load code in erlang <file>\n"
+     "(ep expr)      -- print a term in erlang form\n"
+     "(epp expr)     -- pretty print a term in erlang form\n"
+     "(exit)         -- quit - an alias for (q)\n"
+     "(flush)        -- flush any messages sent to the shell\n"
+     "(h)            -- an alias for (help)\n"
+     "(h m)          -- help about module\n"
+     "(h m m)        -- help about function and macro in module\n"
+     "(h m f a)      -- help about function/arity in module\n"
+     "(help)         -- help info\n"
+     "(i)            -- information about the system\n"
+     "(i pids)       -- information about a list of pids\n"
+     "(i x y z)      -- information about pid #Pid<x.y.z>\n"
+     "(l module)     -- load or reload <module>\n"
+     "(ls)           -- list files in the current directory\n"
+     "(ls dir)       -- list files in directory <dir>\n"
+     "(m)            -- which modules are loaded\n"
+     "(m mod)        -- information about module <mod>\n"
+     "(memory)       -- memory allocation information\n"
+     "(memory t)     -- memory allocation information of type <t>\n"
+     "(p expr)       -- print a term\n"
+     "(pp expr)      -- pretty print a term\n"
+     "(pid x y z)    -- convert x, y, z to a pid\n"
+     "(pwd)          -- print working directory\n"
+     "(q)            -- quit - shorthand for init:stop/0\n"
+     "(regs)         -- information about registered processes\n"
+     "(nregs)        -- information about all registered processes\n"
+     "(uptime)       -- print node uptime\n"
+     "\n"
+     "LFE shell built-in forms\n\n"
+     "(reset-environment)             -- reset the environment to its initial state\n"
+     "(run file)                      -- execute all the shell commands in a <file>\n"
+     "(set pattern expr)\n"
+     "(set pattern (when guard) expr) -- evaluate <expr> and match the result with\n"
+     "                                   pattern binding\n"
+     "(slurp file)                    -- slurp in a LFE source <file> and makes\n"
+     "                                   everything available in the shell\n"
+     "(unslurp)                       -- revert back to the state before the last\n"
+     "                                   slurp\n\n"
+     "LFE shell built-in variables\n\n"
+     "+/++/+++      -- the three previous expressions\n"
+     "*/**/***      -- the values of the previous expressions\n"
+     "-             -- the current expression output\n"
+     "$ENV          -- the current LFE environment\n\n"))
+
+(defun xrepl-help-text ()
+  "Get xrepl-specific help text as a string.
+
+  Returns:
+    Binary string containing the xrepl-specific help text"
+  #b("\e[1;36m=== xrepl Extended Commands ===\e[0m\n\n"
+     "\e[1mSession Management:\e[0m\n"
+     "  (sessions)              - List all sessions\n"
+     "  (new-session)           - Create a new session\n"
+     "  (new-session \"name\")    - Create a named session\n"
+     "  (switch-session id)     - Switch to session by ID or name\n"
+     "  (current-session)       - Show current session info\n"
+     "  (session-info id)       - Show detailed session info\n"
+     "  (close-session id)      - Close a session (keeps metadata)\n"
+     "  (reopen-session id)     - Reopen a closed session\n"
+     "  (purge-sessions)        - Permanently delete all stopped sessions\n\n"
+     "\e[1mHistory:\e[0m\n"
+     "  (history)               - Show command history\n"
+     "  (clear-history)         - Clear command history\n\n"
+     "\e[1mSession Features:\e[0m\n"
+     "  - Each session has its own isolated environment\n"
+     "  - Variables in one session don't affect others\n"
+     "  - Sessions persist their state automatically\n"
+     "  - Sessions timeout after 1 hour of inactivity\n\n"
+     "\e[1mExamples:\e[0m\n"
+     "  > (new-session \"work\")         ; Create a work session\n"
+     "  > (set x 42)                   ; Set variable in work session\n"
+     "  > (new-session \"scratch\")      ; Create another session\n"
+     "  > x                            ; Error: x is undefined here\n"
+     "  > (switch-session \"work\")      ; Switch back to work\n"
+     "  > x                            ; Returns: 42\n"
+     "  > (sessions)                   ; List all sessions\n\n"))
+
+(defun help-text ()
+  "Get complete help text combining LFE and xrepl help.
+
+  Returns:
+    IOlist containing the complete help text"
+  (list (lfe-help-text) (xrepl-help-text)))
+
 (defun xrepl-help ()
   "Display xrepl help with session management commands.
 
   Returns:
-    ok"
-  ;; First show standard LFE help
-  (: lfe_xrepl help)
-  ;; Then add xrepl-specific help
-  (io:format "~n\e[1;36m=== xrepl Extended Commands ===\e[0m~n~n")
-  (io:format "\e[1mSession Management:\e[0m~n")
-  (io:format "  (sessions)              - List all sessions~n")
-  (io:format "  (new-session)           - Create a new session~n")
-  (io:format "  (new-session \"name\")    - Create a named session~n")
-  (io:format "  (switch-session id)     - Switch to session by ID or name~n")
-  (io:format "  (current-session)       - Show current session info~n")
-  (io:format "  (session-info id)       - Show detailed session info~n")
-  (io:format "  (close-session id)      - Close a session (keeps metadata)~n")
-  (io:format "  (reopen-session id)     - Reopen a closed session~n")
-  (io:format "  (purge-sessions)        - Permanently delete all stopped sessions~n~n")
-  (io:format "\e[1mHistory:\e[0m~n")
-  (io:format "  (history)               - Show command history~n")
-  (io:format "  (clear-history)         - Clear command history~n~n")
-  (io:format "\e[1mSession Features:\e[0m~n")
-  (io:format "  - Each session has its own isolated environment~n")
-  (io:format "  - Variables in one session don't affect others~n")
-  (io:format "  - Sessions persist their state automatically~n")
-  (io:format "  - Sessions timeout after 1 hour of inactivity~n~n")
-  (io:format "\e[1mExamples:\e[0m~n")
-  (io:format "  > (new-session \"work\")         ; Create a work session~n")
-  (io:format "  > (set x 42)                   ; Set variable in work session~n")
-  (io:format "  > (new-session \"scratch\")      ; Create another session~n")
-  (io:format "  > x                            ; Error: x is undefined here~n")
-  (io:format "  > (switch-session \"work\")      ; Switch back to work~n")
-  (io:format "  > x                            ; Returns: 42~n")
-  (io:format "  > (sessions)                   ; List all sessions~n~n")
-  'ok)
+    Help text as an iolist (for remote clients to display)"
+  ;; Get the complete help text as an iolist
+  (let ((text (help-text)))
+    ;; Print to stdout for local display
+    (io:put_chars text)
+    ;; Return the text so it can be sent over the wire for remote clients
+    text))
 
 (defun add-shell-macros (env)
   "Add shell macros to the environment.
