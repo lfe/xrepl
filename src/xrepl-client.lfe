@@ -122,7 +122,7 @@
 
 (defun eval (conn code)
   "Evaluate code on server."
-  (case (send conn (map 'op 'eval 'code (list_to_binary code)))
+  (case (send conn (map 'op 'eval 'code (unicode:characters_to_binary code)))
     (`#(ok ,msg-id ,new-conn)
      (case (recv new-conn 5000)
        (`#(ok ,response)
