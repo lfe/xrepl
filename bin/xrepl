@@ -16,10 +16,9 @@ MODES:
     --hybrid            Hybrid mode - server + client (network-enabled local REPL)
 
 SERVER OPTIONS (for --server and --hybrid modes):
-    --tcp               Enable TCP listener
-    --tcp-port PORT     TCP port (default: 7888)
-    --tcp-host HOST     TCP host (default: 127.0.0.1)
-    --unix-socket PATH  UNIX socket path (default: ~/.xrepl/repl.sock)
+    --port PORT         TCP port (default: 7888, enables TCP)
+    --host HOST         TCP host (default: 127.0.0.1, enables TCP)
+    --socket PATH       UNIX socket path (default: ~/.xrepl/repl.sock)
     --no-unix           Disable UNIX socket
 
 CLIENT OPTIONS (for --connect mode):
@@ -46,17 +45,20 @@ EXAMPLES:
     # Standalone - traditional local REPL
     xrepl
 
-    # Server - headless listener for remote connections
-    xrepl --server --tcp --tcp-port 7888
+    # Server - headless TCP listener for remote connections
+    xrepl --server --port 7888
+
+    # Server - custom host binding
+    xrepl --server --host 0.0.0.0 --port 8080
 
     # Client - connect to remote server
     xrepl --connect localhost:7888 --token abc123...
 
     # Hybrid - local REPL with network enabled for IDE/tools
-    xrepl --hybrid --tcp
+    xrepl --hybrid --port 7888
 
     # UNIX socket server
-    xrepl --server --unix-socket /tmp/repl.sock
+    xrepl --server --socket /tmp/repl.sock
 
     # UNIX socket client
     xrepl --connect unix:/tmp/repl.sock
@@ -159,19 +161,17 @@ while [ $# -gt 0 ]; do
             ;;
 
         # Server options
-        --tcp)
-            TCP_ENABLED="true"
-            shift
-            ;;
-        --tcp-port)
+        --port)
             TCP_PORT="$2"
+            TCP_ENABLED="true"
             shift 2
             ;;
-        --tcp-host)
+        --host)
             TCP_HOST="$2"
+            TCP_ENABLED="true"
             shift 2
             ;;
-        --unix-socket)
+        --socket)
             UNIX_SOCKET="$2"
             shift 2
             ;;
