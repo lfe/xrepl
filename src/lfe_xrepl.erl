@@ -713,7 +713,7 @@ read_script_file(File) ->
             case io:get_line(Fd, '') of
                 "#!" ++ _ ->
                     lfe_io:read_file(Fd, 2);
-                _ -> 
+                _ ->
                     file:position(Fd, bof),    %Reset to start of file
                     lfe_io:read_file(Fd, 1)
             end
@@ -1031,9 +1031,10 @@ pwd() -> c:pwd().
 q() -> quit().
 
 quit() ->
-    io:put_chars(["\nSo long, and thanks for all the fish!\n\n"]),
+    Msg = 'xrepl-consts':'good-bye-msg'(),
+    io:put_chars(["\n", Msg, "\n\n"]),
     c:q(),
-    42.
+    'xrepl-consts':'exit-code'().
 
 %% flush() -> ok.
 

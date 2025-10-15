@@ -76,7 +76,7 @@
    ;; Display prompt and read input - this will block until user enters a line
    (case (io:get_line "\e[34mxrepl\e[1;33m> \e[0m")
      ('eof
-      (io:format "~nDisconnecting...~n")
+      (io:format "~s" (list (xrepl-consts:disconnect-msg)))
       (xrepl-client:disconnect conn)
       (tuple 'stop 'normal conn))
      (line
@@ -90,7 +90,7 @@
           ;; Exit commands
           ((orelse (== trimmed "(quit)")
                    (== trimmed "(q)"))
-           (io:format "~nDisconnecting...~n")
+           (io:format "~n~s" (list (xrepl-consts:disconnect-msg)))
            (xrepl-client:disconnect conn)
            (tuple 'stop 'normal conn))
 
