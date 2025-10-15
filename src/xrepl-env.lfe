@@ -16,6 +16,7 @@
    (help-text 0)                      ;; Get combined help text
    (lfe-help-text 0)                  ;; Get LFE help text
    (xrepl-help-text 0)                ;; Get xrepl-specific help text
+   (remote-help-text 0)               ;; Get remote client help text
    (list-history 0)))                 ;; Display command history
 
 ;;; ----------------
@@ -319,12 +320,27 @@
      "  > x                            ; Returns: 42\n"
      "  > (sessions)                   ; List all sessions\n\n"))
 
+(defun remote-help-text ()
+  "Get remote client-specific help text as a string.
+
+  Returns:
+    Binary string containing remote client help text"
+  #b("\e[1;36m=== xrepl Remote Commands ===\e[0m\n\n"
+     "\e[1mNetwork Client Commands:\e[0m\n"
+     "  (ping)                  - Check server liveness (returns 'pong')\n"
+     "  (q)                     - Disconnect from server and exit\n"
+     "  (quit)                  - Disconnect from server and exit\n\n"
+     "\e[1mNotes:\e[0m\n"
+     "  - All evaluations run on the remote server\n"
+     "  - Sessions are managed server-side\n"
+     "  - History is stored on the server\n\n"))
+
 (defun help-text ()
   "Get complete help text combining LFE and xrepl help.
 
   Returns:
     IOlist containing the complete help text"
-  (list (lfe-help-text) (xrepl-help-text)))
+  (list (lfe-help-text) (xrepl-help-text) (remote-help-text)))
 
 (defun xrepl-help ()
   "Display xrepl help with session management commands.

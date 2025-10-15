@@ -21,7 +21,7 @@
                       period 10))      ;; Within 10 seconds
         (child-spec `#M(id xrepl-client-shell
                        start #(xrepl-client-shell start_link (,initial-conn))
-                       restart permanent
+                       restart transient  ;; Only restart on abnormal exit
                        shutdown 5000
                        type worker
                        modules (xrepl-client-shell))))

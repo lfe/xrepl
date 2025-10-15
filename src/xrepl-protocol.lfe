@@ -28,7 +28,6 @@
   "Initialize protocol handler.
 
   Performs Ranch handshake and enters message loop."
-  (error_logger:info_msg "~n~n*** PROTOCOL HANDLER INIT CALLED ***~n~n")
   ;; Perform Ranch handshake to become socket owner
   (case (ranch:handshake ref)
     (`#(ok ,socket)
@@ -49,8 +48,6 @@
                      session-id 'undefined
                      authenticated is-unix?  ;; UNIX sockets pre-authenticated
                      buffer #"")))
-       (error_logger:info_msg "New connection from ~p (UNIX socket: ~p)"
-                   (list peername is-unix?))
        (message-loop state)))
 
     (`#(error ,reason)
@@ -68,7 +65,6 @@
 
       ;; Socket closed
       (`#(tcp_closed ,socket)
-       (error_logger:info_msg "Connection closed")
        'ok)
 
       ;; Socket error
@@ -86,19 +82,15 @@
   "Process incoming message data."
   (let ((transport (protocol-state-transport state))
         (socket (protocol-state-socket state)))
-    (error_logger:info_msg "~n[XREPL-DEBUG] Received data, size: ~p bytes~n" (list (byte_size data)))
     ;; Decode message (MessagePack)
     (case (xrepl-msgpack:decode data)
       (`#(ok ,message)
-       (error_logger:info_msg "Decoded message: ~p" (list message))
        ;; Authenticate if not yet authenticated
        (case (protocol-state-authenticated state)
          ('false
-          (error_logger:info_msg "Not authenticated, authenticating...")
           (case (authenticate-message message state)
             (`#(ok ,new-state)
              ;; Process authenticated message
-             (error_logger:info_msg "Authentication successful, processing message")
              (let ((result-state (handle-message message new-state)))
                ;; Re-enable socket
                (call transport 'setopts socket (list (tuple 'active 'once)))
@@ -110,13 +102,12 @@
              'ok)))
          ('true
           ;; Already authenticated, process message
-          (error_logger:info_msg "Already authenticated, processing message")
           (let ((result-state (handle-message message state)))
             (call transport 'setopts socket (list (tuple 'active 'once)))
             (message-loop result-state)))))
 
       (`#(error ,reason)
-       (error_logger:info_msg "Decode failed: ~p" (list reason))
+       (error_logger:info_msg "Message decode failed: ~p" (list reason))
        (send-error #m(id (binary "unknown")) 'decode-error reason state)
        (funcall transport 'setopts socket (list (tuple 'active 'once)))
        (message-loop state)))))
@@ -135,9 +126,7 @@
 
 (defun handle-message (message state)
   "Handle authenticated message."
-  (let ((op (maps:get (binary "op") message 'undefined))
-        (msg-id (maps:get (binary "id") message (binary "unknown"))))
-    (error_logger:info_msg "Handling message with op: ~p, id: ~p" (list op msg-id))
+  (let ((op (maps:get (binary "op") message 'undefined)))
     (case op
       ((binary "eval") (handle-eval message state))
       ((binary "clone") (handle-clone message state))
@@ -156,13 +145,10 @@
   "Handle code evaluation request."
   (let ((code (binary_to_list (maps:get (binary "code") message)))
         (session-id (get-or-create-session state message)))
-    (error_logger:info_msg "Evaluating code: ~p in session ~p" (list code session-id))
     (case (xrepl-session:eval session-id code)
       (`#(ok ,value)
        ;; Format the value as a string for transmission
-       (error_logger:info_msg "Eval succeeded, value: ~p" (list value))
        (let ((value-str (format-value value)))
-         (error_logger:info_msg "Formatted value: ~p" (list value-str))
          (send-response message
                        `#m(status done
                            value ,(unicode:characters_to_binary value-str)
@@ -170,7 +156,6 @@
                        state)
          (set-protocol-state-session-id state session-id)))
       (`#(error ,reason)
-       (error_logger:info_msg "Eval failed with reason: ~p" (list reason))
        (send-error message 'eval-error reason state)
        state))))
 
@@ -313,7 +298,6 @@
       ('true
        (lists:flatten (lfe_io:prettyprint1 value 30))))
     (catch
-      ((tuple _ reason _)
-       (error_logger:info_msg "Failed to format value ~p: ~p" (list value reason))
-       ;; Fallback to io_lib:format
+      ((tuple _ _reason _)
+       ;; Fallback to io_lib:format if pretty-print fails
        (lists:flatten (io_lib:format "~p" (list value)))))))

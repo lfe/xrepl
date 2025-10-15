@@ -32,12 +32,23 @@
     initial-conn: Client connection from xrepl-client:connect/1"
   (case (xrepl-client-sup:start_link initial-conn)
     (`#(ok ,sup-pid)
-     ;; Wait for the supervisor to complete
-     ;; (which happens when the shell exits normally)
-     (let ((mon (erlang:monitor 'process sup-pid)))
-       (receive
-         (`#(DOWN ,mon process ,sup-pid ,_reason)
-          'ok))))
+     ;; Link to supervisor so we exit when it exits
+     (erlang:link sup-pid)
+     ;; Monitor the shell child to know when it exits
+     (case (supervisor:which_children sup-pid)
+       ((list `#(xrepl-client-shell ,shell-pid ,_ ,_))
+        (let ((mon (erlang:monitor 'process shell-pid)))
+          (receive
+            (`#(DOWN ,mon process ,shell-pid ,reason)
+             ;; When shell exits (normally or crash), stop the supervisor
+             (supervisor:terminate_child sup-pid 'xrepl-client-shell)
+             (supervisor:delete_child sup-pid 'xrepl-client-shell)
+             (erlang:unlink sup-pid)
+             (erlang:exit sup-pid 'shutdown)
+             'ok))))
+       (_
+        (io:format "Failed to find shell child~n")
+        (tuple 'error 'no_child))))
     (`#(error ,reason)
      (io:format "Failed to start supervised shell: ~p~n" (list reason))
      (tuple 'error reason))))
@@ -76,8 +87,9 @@
            (gen_server:cast (self) 'prompt)
            (tuple 'noreply conn))
 
-          ;; Exit command
-          ((== trimmed "(quit)")
+          ;; Exit commands
+          ((orelse (== trimmed "(quit)")
+                   (== trimmed "(q)"))
            (io:format "~nDisconnecting...~n")
            (xrepl-client:disconnect conn)
            (tuple 'stop 'normal conn))
