@@ -172,8 +172,16 @@ while [ $# -gt 0 ]; do
             shift 2
             ;;
         --socket)
-            UNIX_SOCKET="$2"
-            shift 2
+            # Check if next arg exists and is not a flag
+            if [ -n "$2" ] && [ "${2#-}" = "$2" ]; then
+                # Next arg is a path
+                UNIX_SOCKET="$2"
+                shift 2
+            else
+                # No path provided, use default
+                # Default is already set to $HOME/.xrepl/repl.sock
+                shift
+            fi
             ;;
         --no-unix)
             UNIX_ENABLED="false"
@@ -298,8 +306,24 @@ receive after infinity -> ok end"
         # Parse target
         case "$CONNECT_TARGET" in
             unix:*)
-                # UNIX socket
+                # UNIX socket - expand tilde in path
                 SOCKET_PATH="${CONNECT_TARGET#unix:}"
+                # If no path provided after 'unix:', use default
+                if [ -z "$SOCKET_PATH" ]; then
+                    SOCKET_PATH="$HOME/.xrepl/repl.sock"
+                else
+                    # Expand ~ to $HOME
+                    case "$SOCKET_PATH" in
+                        ~*)
+                            SOCKET_PATH="$HOME${SOCKET_PATH#\~}"
+                            ;;
+                    esac
+                fi
+                CONNECT_OPTS="#{socket => <<\"$SOCKET_PATH\">>}"
+                ;;
+            unix)
+                # Just 'unix' without colon - use default socket path
+                SOCKET_PATH="$HOME/.xrepl/repl.sock"
                 CONNECT_OPTS="#{socket => <<\"$SOCKET_PATH\">>}"
                 ;;
             *:*)

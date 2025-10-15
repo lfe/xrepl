@@ -187,7 +187,7 @@
           (repl-loop-with-session actual-current opts)))))))
 
 (defun handle-form (form session-id)
-  "Handle evaluation of a form.
+  "Handle evaluation of a form via protocol handler.
 
   Args:
     form: LFE form to evaluate
@@ -197,90 +197,94 @@
   Handles special return values like #(switch session-id) for automatic switching."
   ;; Add to history (convert form to string)
   (xrepl-history:add (format-form form))
-  ;; Evaluate
-  (try
-    (case (xrepl-session:eval session-id form)
-      (`#(ok ,value)
-       ;; Check if value signals a session switch
-       (case value
-         (`#(switch ,new-session-id)
-          ;; Perform switch in REPL process (silently - prompt change is feedback)
-          (xrepl-session-manager:set-current new-session-id)
-          (xrepl-io:print-value 'ok))
-         (`#(switch-to-other)
-          ;; Closed current session, switch to default session
-          (case (xrepl-session-manager:find-default)
-            ('undefined
-             ;; No default session, shouldn't happen but handle gracefully
-             (xrepl-io:print-value 'ok))
-            (default-session-id
-             ;; Switch to default session
-             (xrepl-session-manager:set-current default-session-id)
-             (xrepl-io:print-value 'ok))))
-         (_
-          ;; Normal value
-          (xrepl-io:print-value value))))
-      (`#(error ,reason)
-       ;; Reason is already a formatted error string
-       (io:put_chars (if (is_binary reason)
-                       reason
-                       (list_to_binary (lists:flatten (io_lib:format "~s" (list reason))))))
-       (io:nl)))
-    (catch
-      ;; Suppress normal exit from session process (expected when closing)
-      ((tuple 'exit 'normal _)
-       ;; Session was closed - check if it's still valid
-       ;; If not, we need to signal a switch
-       (case (xrepl-session-manager:is-active? session-id)
-         ('false
-          ;; Session is gone, user must have closed it - switch to default
-          (case (xrepl-session-manager:find-default)
-            ('undefined
-             ;; No default session
-             (xrepl-io:print-value 'ok))
-            (default-session-id
-             ;; Switch to default session
-             (xrepl-session-manager:set-current default-session-id)
-             (xrepl-io:print-value 'ok))))
-         ('true
-          ;; Session still exists, just print ok
-          (xrepl-io:print-value 'ok))))
-      ;; Also catch the gen_server call error when session is already gone
-      ((tuple 'exit reason _)
-       (if (is_tuple reason)
-         (case reason
-           (`#(normal ,_)
-            ;; Normal exit with gen_server details - handle same as above
-            (case (xrepl-session-manager:is-active? session-id)
-              ('false
-               ;; Session is gone, switch to default
+
+  ;; Create protocol message for eval operation
+  (let ((message (map 'op 'eval 'code form)))
+    (try
+      ;; Call unified protocol handler
+      (case (xrepl-handler:handle-message message session-id 'true)
+        (`#(,response ,new-session-id)
+         ;; Handle response based on status
+         (case (maps:get 'status response)
+           ('done
+            ;; Check for special actions first
+            (case (maps:get 'action response 'undefined)
+              ('switch
+               ;; Session switch - update current session
+               (let ((new-sid (binary_to_list (maps:get 'session response))))
+                 (xrepl-session-manager:set-current new-sid)
+                 (xrepl-io:print-value 'ok)))
+              ('switch-to-other
+               ;; Switch to default session
                (case (xrepl-session-manager:find-default)
                  ('undefined
-                  ;; No default session
                   (xrepl-io:print-value 'ok))
                  (default-session-id
-                  ;; Switch to default session
                   (xrepl-session-manager:set-current default-session-id)
                   (xrepl-io:print-value 'ok))))
-              ('true
-               (xrepl-io:print-value 'ok))))
-           (`#(noproc ,_)
-            ;; Process doesn't exist - definitely closed, switch to default
+              ('undefined
+               ;; No action, check if there's a value to print
+               (case (maps:get 'value response 'undefined)
+                 ('undefined
+                  ;; No value, operation acknowledgment
+                  'ok)
+                 (value-bin
+                  ;; Got evaluation result
+                  (let ((value-str (if (is_binary value-bin)
+                                     (binary_to_list value-bin)
+                                     value-bin)))
+                    ;; The value is formatted as a string, just print it
+                    (io:put_chars value-str)
+                    (io:nl)))))))
+           ('error
+            ;; Extract and print error
+            (let ((error (maps:get 'error response (map))))
+              (case (maps:get 'message error (binary "Unknown error"))
+                (msg
+                 (io:put_chars msg)
+                 (io:nl))))))))
+      (catch
+        ;; Suppress normal exit from session process (expected when closing)
+        ((tuple 'exit 'normal _)
+         ;; Session was closed - check if it's still valid
+         (case (xrepl-session-manager:is-active? session-id)
+           ('false
+            ;; Session is gone, switch to default
             (case (xrepl-session-manager:find-default)
               ('undefined
-               ;; No default session
                (xrepl-io:print-value 'ok))
               (default-session-id
-               ;; Switch to default session
                (xrepl-session-manager:set-current default-session-id)
                (xrepl-io:print-value 'ok))))
-           (_
-            ;; Other exit reason
-            (xrepl-io:print-error 'exit reason '())))
-         ;; Non-tuple exit reason
-         (xrepl-io:print-error 'exit reason '())))
-      ((tuple class reason stack)
-       (xrepl-io:print-error class reason stack)))))
+           ('true
+            (xrepl-io:print-value 'ok))))
+        ;; Catch gen_server call errors
+        ((tuple 'exit reason _)
+         (if (is_tuple reason)
+           (case reason
+             (`#(normal ,_)
+              (case (xrepl-session-manager:is-active? session-id)
+                ('false
+                 (case (xrepl-session-manager:find-default)
+                   ('undefined
+                    (xrepl-io:print-value 'ok))
+                   (default-session-id
+                    (xrepl-session-manager:set-current default-session-id)
+                    (xrepl-io:print-value 'ok))))
+                ('true
+                 (xrepl-io:print-value 'ok))))
+             (`#(noproc ,_)
+              (case (xrepl-session-manager:find-default)
+                ('undefined
+                 (xrepl-io:print-value 'ok))
+                (default-session-id
+                 (xrepl-session-manager:set-current default-session-id)
+                 (xrepl-io:print-value 'ok))))
+             (_
+              (xrepl-io:print-error 'exit reason '())))
+           (xrepl-io:print-error 'exit reason '())))
+        ((tuple class reason stack)
+         (xrepl-io:print-error class reason stack))))))
 
 (defun format-form (form)
   "Convert form to string for history.

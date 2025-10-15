@@ -125,98 +125,15 @@
         (tuple 'error (binary "Invalid token")))))))
 
 (defun handle-message (message state)
-  "Handle authenticated message."
-  (let ((op (maps:get (binary "op") message 'undefined)))
-    (case op
-      ((binary "eval") (handle-eval message state))
-      ((binary "clone") (handle-clone message state))
-      ((binary "close") (handle-close message state))
-      ((binary "ls_sessions") (handle-ls-sessions message state))
-      ((binary "describe") (handle-describe message state))
-      ((binary "ping") (handle-ping message state))
-      (_
-       (send-error message 'unknown-op
-                  (list_to_binary
-                    (++ "Unknown operation: " (binary_to_list op)))
-                  state)
-       state))))
-
-(defun handle-eval (message state)
-  "Handle code evaluation request."
-  (let ((code (binary_to_list (maps:get (binary "code") message)))
-        (session-id (get-or-create-session state message)))
-    (case (xrepl-session:eval session-id code)
-      (`#(ok ,value)
-       ;; Format the value as a string for transmission
-       (let ((value-str (format-value value)))
-         (send-response message
-                       `#m(status done
-                           value ,(unicode:characters_to_binary value-str)
-                           session ,(list_to_binary session-id))
-                       state)
-         (set-protocol-state-session-id state session-id)))
-      (`#(error ,reason)
-       (send-error message 'eval-error reason state)
-       state))))
-
-(defun handle-clone (message state)
-  "Handle session clone request."
-  (case (xrepl-session-manager:create #m())
-    (`#(ok ,new-session-id)
-     (send-response message
-                   #m(status done
-                      new_session (list_to_binary new-session-id))
-                   state)
-     state)
-    (`#(error ,reason)
-     (send-error message 'clone-failed reason state)
-     state)))
-
-(defun handle-close (message state)
-  "Handle session close request."
-  (let ((session-id (case (maps:get (binary "session") message 'undefined)
-                      ('undefined (protocol-state-session-id state))
-                      (sid (binary_to_list sid)))))
-    (case session-id
-      ('undefined
-       (send-error message 'no-session (binary "No session to close") state))
-      (_
-       (xrepl-session-manager:close session-id)
-       (send-response message #m(status done) state))))
-  state)
-
-(defun handle-ls-sessions (message state)
-  "Handle list sessions request."
-  (let ((sessions (xrepl-session-manager:list-detailed)))
-    (send-response message
-                  #m(status done
-                     sessions (format-sessions sessions))
-                  state)
-    state))
-
-(defun handle-describe (message state)
-  "Handle describe request (server capabilities)."
-  (send-response message
-                #m(status done
-                   versions #m(xrepl (binary "0.3.0")
-                              lfe (binary "2.2.0")
-                              erlang (list_to_binary
-                                       (erlang:system_info 'otp_release)))
-                   ops (list (binary "eval") (binary "clone") (binary "close")
-                            (binary "ls_sessions") (binary "describe") (binary "ping")
-                            (binary "load_file"))
-                   transports (list (binary "tcp") (binary "unix")))
-                state)
-  state)
-
-(defun handle-ping (message state)
-  "Handle ping request."
-  (send-response message
-                (map 'status 'done
-                     'pong 'true
-                     'timestamp (erlang:system_time 'second))
-                state)
-  state)
+  "Handle authenticated message by delegating to xrepl-handler."
+  (let ((session-id (protocol-state-session-id state))
+        (authenticated? (protocol-state-authenticated state)))
+    ;; Call unified handler with binary keys (no conversion needed)
+    (case (xrepl-handler:handle-message message session-id authenticated?)
+      (`#(,response ,new-session-id)
+       ;; Send response and update state with new session-id
+       (send-response message response state)
+       (set-protocol-state-session-id state new-session-id)))))
 
 (defun send-response (request response state)
   "Send response message."
@@ -231,73 +148,20 @@
        (error_logger:info_msg "Failed to encode response: ~p" (list reason))))))
 
 (defun send-error (request error-type reason state)
-  "Send error response."
+  "Send error response.
+
+  Used for auth and decode errors where we can't use the handler."
   (send-response request
-                #m(status error
-                   error #m(type error-type
-                           message (if (is_binary reason)
-                                     reason
-                                     (list_to_binary
-                                       (io_lib:format "~p" (list reason))))))
+                (map 'status 'error
+                     'error (map 'type error-type
+                                 'message (if (is_binary reason)
+                                            reason
+                                            (list_to_binary
+                                              (io_lib:format "~p" (list reason))))))
                 state))
 
 (defun send-keepalive (state)
   "Send keepalive ping."
-  (send-response #m(id (binary "keepalive"))
-                #m(status ping)
+  (send-response (map 'id (binary "keepalive"))
+                (map 'status 'ping)
                 state))
-
-(defun get-or-create-session (state message)
-  "Get existing session or create new one."
-  (case (protocol-state-session-id state)
-    ('undefined
-     ;; Try to get session from message
-     (case (maps:get (binary "session") message 'undefined)
-       ('undefined
-        ;; Create new session
-        (case (xrepl-session-manager:create #m())
-          (`#(ok ,session-id) session-id)
-          (`#(error ,_)
-           ;; Fall back to default
-           (case (xrepl-session-manager:find-default)
-             ('undefined
-              (let (((tuple 'ok sid) (xrepl-session-manager:create
-                                       #m(name "default"))))
-                sid))
-             (default-id default-id)))))
-       (session-id (binary_to_list session-id))))
-    (existing existing)))
-
-(defun format-sessions (sessions)
-  "Format session list for response."
-  (lists:map
-    (lambda (session)
-      #m(id (list_to_binary (maps:get 'id session))
-         active (maps:get 'active? session)
-         created_at (maps:get 'created-at session)))
-    sessions))
-
-(defun format-value (value)
-  "Format a value for display in network response.
-
-  Args:
-    value: Any Erlang/LFE term
-
-  Returns:
-    String representation of the value"
-  (try
-    (cond
-      ;; If it's already an iolist (like help text), flatten it to a string
-      ((and (is_list value)
-            (not (== value '()))
-            (is_binary (car value)))
-       ;; It's an iolist, flatten it
-       (binary_to_list (iolist_to_binary value)))
-
-      ;; Otherwise pretty-print it
-      ('true
-       (lists:flatten (lfe_io:prettyprint1 value 30))))
-    (catch
-      ((tuple _ _reason _)
-       ;; Fallback to io_lib:format if pretty-print fails
-       (lists:flatten (io_lib:format "~p" (list value)))))))
