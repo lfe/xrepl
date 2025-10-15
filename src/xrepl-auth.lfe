@@ -146,7 +146,7 @@
     (io:put_chars (++ vbar "  " token "     " vbar "\n"))
     (io:put_chars (++ blank "\n"))
     (io:put_chars (++ vbar "  Use this token to connect to the network REPL:                       " vbar "\n"))
-    (io:put_chars (++ vbar "  --token " (lists:sublist token 5) "...                                                     " vbar "\n"))
+    (io:put_chars (++ vbar "    --token " (lists:sublist token 5) "...                                                   " vbar "\n"))
     (io:put_chars (++ blank "\n"))
     (io:put_chars (++ vbar "  Saved to: ~/.xrepl/auth.token                                        " vbar "\n"))
     (io:put_chars (++ blank "\n"))

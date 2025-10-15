@@ -244,6 +244,174 @@ Session state is automatically saved:
 * **Cleanup**: Expired sessions are automatically cleaned up every 5 minutes
 * **Manual Close**: `(close-session id)` to close immediately
 
+### Phase 3 Status: Complete ✓
+
+Phase 3 implementation is complete! Network REPL support with TCP and UNIX domain sockets is now available.
+
+#### New Features
+
+* ✓ **Network REPL**: Connect to xrepl over TCP or UNIX domain sockets
+* ✓ **Multiple Clients**: Multiple clients can connect to the same server simultaneously
+* ✓ **Transport Options**: Both TCP (network) and UNIX domain sockets (local IPC)
+* ✓ **Token Authentication**: Secure TCP connections with cryptographic tokens
+* ✓ **File Permissions Auth**: UNIX sockets use filesystem permissions (0600)
+* ✓ **Crash Recovery**: Client supervision tree provides automatic crash recovery
+* ✓ **Unicode Support**: Full UTF-8 support for all client-server communication
+* ✓ **Client Commands**: Special `(ping)`, `(q)`, and `(quit)` commands for remote clients
+
+#### Server Modes
+
+**1. Standalone Mode (Default)**
+
+```bash
+./bin/xrepl
+```
+
+Traditional local REPL with no network access.
+
+**2. Server Mode**
+
+```bash
+# TCP server (network access)
+./bin/xrepl --server --port 7888 --host 127.0.0.1
+
+# UNIX socket server (local IPC only)
+./bin/xrepl --server --socket ~/.xrepl/repl.sock
+
+# Both TCP and UNIX
+./bin/xrepl --server --port 7888
+```
+
+Headless server mode - listens for client connections, no local REPL.
+
+**3. Client Mode**
+
+```bash
+# Connect via TCP
+./bin/xrepl --connect localhost:7888 --token <TOKEN>
+
+# Connect via UNIX socket
+./bin/xrepl --connect unix:~/.xrepl/repl.sock
+```
+
+Connect to an existing server.
+
+**4. Hybrid Mode**
+
+```bash
+./bin/xrepl --hybrid --port 7888
+```
+
+Local REPL + network server - appears local but network-enabled for IDE/tool integration.
+
+#### Network Features
+
+**Authentication**
+* **TCP connections**: Require cryptographic token authentication
+* **UNIX sockets**: Use filesystem permissions (no token needed)
+* Tokens are 64-character hex strings (256-bit security)
+* Token automatically saved to `~/.xrepl/auth.token`
+
+**Client Commands**
+
+```lfe
+xrepl> (ping)                  ; Check server liveness
+pong
+
+xrepl> (q)                     ; Disconnect from server
+Disconnecting...
+
+xrepl> (quit)                  ; Alternative to (q)
+Disconnecting...
+```
+
+**Server Management**
+
+```bash
+# Start TCP server
+./bin/xrepl --server --port 7888
+# Token displayed on startup:
+╔═══════════════════════════════════════════════════════════════════════╗
+║ xrepl Network Authentication Token                                    ║
+╠═══════════════════════════════════════════════════════════════════════╣
+║                                                                       ║
+║  C5BD6BAF563F5C4026C44EB35858BA6702463FCF082C074B28CA414B3B779242     ║
+║                                                                       ║
+║  Use this token to connect to the network REPL:                       ║
+║    --token C5BD6...                                                   ║
+║                                                                       ║
+║  Saved to: ~/.xrepl/auth.token                                        ║
+║                                                                       ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+# Connect from another terminal
+./bin/xrepl --connect localhost:7888  --token $(cat ~/.xrepl/auth.token)
+# Or use saved token
+./bin/xrepl --connect localhost:7888
+```
+
+#### Architecture
+
+**Server Side**
+* Ranch-based TCP/UNIX socket listener
+* Protocol handler per connection (supervised by Ranch)
+* MessagePack binary protocol
+* Session management (each client can have its own session)
+
+**Client Side**
+* Supervised client shell process
+* Automatic crash recovery without losing connection
+* Try-catch error handling for graceful degradation
+* MessagePack encoding/decoding
+
+#### Security
+
+**TCP Connections**
+* Token authentication required
+* Tokens are 256-bit cryptographically secure random values
+* Default binding: `127.0.0.1` (localhost only)
+* For remote access, use SSH tunneling:
+
+  ```bash
+  ssh -L 7888:localhost:7888 user@host
+  ```
+
+**UNIX Domain Sockets**
+* File permissions-based security
+* Socket files created with `0600` permissions (owner-only)
+* No token authentication needed
+* Local machine only
+
+#### Error Handling & Resilience
+
+* **Client crash recovery**: Supervised client shell automatically recovers from crashes
+* **Unicode support**: Full UTF-8 encoding throughout the protocol
+* **Network errors**: Graceful handling of disconnections and timeouts
+* **Fallback formatting**: Automatic fallback for value formatting errors
+
+#### Example Workflow
+
+```bash
+# Terminal 1: Start server
+$ ./bin/xrepl --server --port 7888
+# Token displayed...
+
+# Terminal 2: Connect client A
+$ ./bin/xrepl --connect localhost:7888
+xrepl> (set x 42)
+42
+xrepl> (new-session "alice")
+xrepl> (switch-session "alice")
+
+# Terminal 3: Connect client B (independent session)
+$ ./bin/xrepl --connect localhost:7888
+xrepl> x
+*** exception error: #(unbound_symb x)  ; Different session!
+xrepl> (new-session "bob")
+
+# All clients share the same server, but can have different sessions
+```
+
 There's a lot of work to be done, here -- the bits that have been written down are organised by milestone, here:
 
 * [lfe/xrepl/milestones](https://github.com/lfe/xrepl/milestones?direction=asc&sort=title&state=open)
@@ -297,8 +465,28 @@ Start the xrepl REPL using the command-line executable:
 
 #### Command Line Options
 
-* `--help` - Show help message
-* `--version` - Show version information
+**Mode Selection**
+
+* `--server` - Server mode (headless listener, no local REPL)
+* `--connect TARGET` - Client mode (connect to existing server)
+* `--hybrid` - Hybrid mode (server + client, network-enabled local REPL)
+
+**Server Options** (for `--server` and `--hybrid` modes)
+
+* `--port PORT` - TCP port (default: 7888, enables TCP)
+* `--host HOST` - TCP host (default: 127.0.0.1, enables TCP)
+* `--socket PATH` - UNIX socket path (default: ~/.xrepl/repl.sock)
+* `--no-unix` - Disable UNIX socket
+
+**Client Options** (for `--connect` mode)
+
+* `--token TOKEN` - Authentication token (required for TCP)
+* `--token-file FILE` - Read token from file (default: ~/.xrepl/auth.token)
+
+**General Options**
+
+* `--help`, `-h` - Show help message
+* `--version`, `-v` - Show version information
 * `--no-banner` - Start without displaying the banner
 * `--no-history` - Disable command history
 * `--history FILE` - Use custom history file
@@ -308,8 +496,23 @@ Start the xrepl REPL using the command-line executable:
 Examples:
 
 ```bash
-# Start with default settings
+# Start with default settings (standalone mode)
 ./bin/xrepl
+
+# Start TCP server
+./bin/xrepl --server --port 7888
+
+# Start UNIX socket server only
+./bin/xrepl --server --socket /tmp/repl.sock --no-unix
+
+# Connect to TCP server
+./bin/xrepl --connect localhost:7888 --token abc123...
+
+# Connect to UNIX socket
+./bin/xrepl --connect unix:~/.xrepl/repl.sock
+
+# Hybrid mode (local REPL + network server)
+./bin/xrepl --hybrid --port 7888
 
 # Start without banner
 ./bin/xrepl --no-banner
