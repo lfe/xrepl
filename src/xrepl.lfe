@@ -179,6 +179,9 @@
          (`#(error eof)
           (io:format "~n")
           'ok)
+         (`#(error empty-input)
+          ;; Empty input is not an error, just continue
+          (repl-loop-with-session actual-current opts))
          (`#(error ,reason)
           (xrepl-io:print-error 'error reason '())
           (repl-loop-with-session actual-current opts)))))))

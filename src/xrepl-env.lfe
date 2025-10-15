@@ -346,13 +346,13 @@
   "Display xrepl help with session management commands.
 
   Returns:
-    Help text as an iolist (for remote clients to display)"
+    ok (after printing help text)"
   ;; Get the complete help text as an iolist
   (let ((text (help-text)))
-    ;; Print to stdout for local display
+    ;; Print to stdout
     (io:put_chars text)
-    ;; Return the text so it can be sent over the wire for remote clients
-    text))
+    ;; Return ok like other shell commands that print
+    'ok))
 
 (defun add-shell-macros (env)
   "Add shell macros to the environment.
