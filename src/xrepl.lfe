@@ -208,8 +208,14 @@
   ;; History is now tracked in the session evaluator (xrepl-session.lfe)
   ;; to ensure it works for both standalone and network modes
 
-  ;; Create protocol message for eval operation
-  (let ((message (map 'op 'eval 'code form)))
+  ;; Check if this is a client-side graphics command
+  (case (is-graphics-command? form)
+    ('true
+     ;; Execute locally, don't send to session
+     (execute-graphics-command form))
+    ('false
+     ;; Create protocol message for eval operation
+     (let ((message (map 'op 'eval 'code form)))
     (try
       ;; Call unified protocol handler
       (case (xrepl-handler:handle-message message session-id 'true)
@@ -294,7 +300,42 @@
               (xrepl-io:print-error 'exit reason '())))
            (xrepl-io:print-error 'exit reason '())))
         ((tuple class reason stack)
-         (xrepl-io:print-error class reason stack))))))
+         (xrepl-io:print-error class reason stack))))))))
+
+(defun is-graphics-command?
+  "Check if form is a graphics command.
+
+  Returns:
+    true | false"
+  ((`(render-image . ,_)) 'true)
+  (('(terminal-info)) 'true)
+  (('(supports-graphics?)) 'true)
+  ((_) 'false))
+
+(defun execute-graphics-command
+  "Execute graphics command locally.
+
+  Args:
+    form: Graphics command form
+
+  Returns:
+    ok"
+  ((`(render-image ,filepath))
+   (xrepl-client-shell-fns:render-image filepath))
+
+  ((`(render-image ,filepath ,opts))
+   (xrepl-client-shell-fns:render-image filepath opts))
+
+  (('(terminal-info))
+   (xrepl-client-shell-fns:terminal-info))
+
+  (('(supports-graphics?))
+   (let ((result (xrepl-client-shell-fns:supports-graphics?)))
+     (xrepl-io:print-value result)))
+
+  ((form)
+   (io:format "Unknown graphics command: ~p~n" (list form))
+   (tuple 'error 'unknown-graphics-command)))
 
 (defun format-form (form)
   "Convert form to string for history.

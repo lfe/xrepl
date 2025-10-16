@@ -116,6 +116,12 @@
                 (gen_server:cast (self) 'prompt)
                 (tuple 'noreply conn)))))
 
+          ;; Client-side graphics commands
+          ((is-client-command? trimmed)
+           (handle-client-command trimmed)
+           (gen_server:cast (self) 'prompt)
+           (tuple 'noreply conn))
+
           ;; Regular evaluation
           ('true
            ;; Wrap eval in try-catch for crash recovery
@@ -210,6 +216,77 @@
     ;; Fallback for other types (shouldn't happen)
     ('true
      (io:format "~p~n" (list value)))))
+
+(defun is-client-command? (input)
+  "Check if input is a client-side command.
+
+  Returns:
+    true | false"
+  (orelse (is-render-command? input)
+          (is-terminal-info-command? input)))
+
+(defun is-render-command? (input)
+  "Check if input is a render-image command."
+  (orelse (=/= (string:prefix input "(render-image ") 'nomatch)
+          (=/= (string:prefix input "(render-image\n") 'nomatch)))
+
+(defun is-terminal-info-command? (input)
+  "Check if input is terminal-info command."
+  (orelse (== input "(terminal-info)")
+          (== input "(supports-graphics?)")))
+
+(defun handle-client-command (input)
+  "Execute client-side command.
+
+  Args:
+    input: Command string
+
+  Returns:
+    ok | {error, reason}"
+  (try
+    (case (lfe_io:read_string input)
+      (`#(ok (,form))
+       (eval-client-command form))
+      (`#(error ,_ ,_)
+       (io:format "Parse error~n")
+       (tuple 'error 'parse-error))
+      ('eof
+       (tuple 'error 'eof)))
+    (catch
+      ((tuple _class reason _stack)
+       (io:format "Error: ~p~n" (list reason))
+       (tuple 'error reason)))))
+
+(defun eval-client-command
+  "Evaluate client-side command form.
+
+  Args:
+    form: Parsed LFE form
+
+  Returns:
+    ok | {error, reason}"
+  ;; (render-image "file.png")
+  ((`(render-image ,filepath))
+   (xrepl-client-shell-fns:render-image filepath))
+
+  ;; (render-image "file.png" #m(...))
+  ((`(render-image ,filepath ,opts))
+   (xrepl-client-shell-fns:render-image filepath opts))
+
+  ;; (terminal-info)
+  (('(terminal-info))
+   (xrepl-client-shell-fns:terminal-info))
+
+  ;; (supports-graphics?)
+  (('(supports-graphics?))
+   (let ((result (xrepl-client-shell-fns:supports-graphics?)))
+     (io:format "~p~n" (list result))
+     'ok))
+
+  ;; Unknown client command
+  ((form)
+   (io:format "Unknown client command: ~p~n" (list form))
+   (tuple 'error 'unknown-client-command)))
 
 (defun banner ()
   "Get the xrepl banner."
