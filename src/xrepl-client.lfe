@@ -10,7 +10,8 @@
    (eval 2)
    (ping 1)
    (clone 1)
-   (ls-sessions 1)))
+   (ls-sessions 1)
+   (upload-history 2)))
 
 (defrecord client-connection
   socket        ;; Connected socket
@@ -173,6 +174,30 @@
         (tuple 'error reason new-conn))))
     (`#(error ,reason)
      (tuple 'error reason conn))))
+
+(defun upload-history (conn commands)
+  "Upload history commands to server.
+
+  Args:
+    conn: Client connection
+    commands: List of command strings to upload
+
+  Returns:
+    {ok, count, new-conn} | {error, reason, conn}"
+  (let ((bin-commands (lists:map #'unicode:characters_to_binary/1 commands)))
+    (case (send conn (map 'op 'upload_history 'commands bin-commands))
+      (`#(ok ,msg-id ,new-conn)
+       (case (recv new-conn 5000)
+         (`#(ok ,response)
+          (case (maps:get #"status" response)
+            (#"done"
+             (tuple 'ok (maps:get #"uploaded" response) new-conn))
+            (#"error"
+             (tuple 'error (maps:get #"error" response) new-conn))))
+         (`#(error ,reason)
+          (tuple 'error reason new-conn))))
+      (`#(error ,reason)
+       (tuple 'error reason conn)))))
 
 ;;; Private
 

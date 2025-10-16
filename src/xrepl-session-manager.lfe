@@ -49,11 +49,25 @@
      (case (xrepl-session-sup:start-session session-id)
        (`#(ok ,_pid)
         (logger:info "Started session ~s" (list session-id))
-        ;; Add name to metadata if provided
-        (case (maps:get 'name opts 'undefined)
-          ('undefined 'ok)
-          (name
-           (xrepl-store:set-metadata session-id (map 'name name))))
+        ;; Add name and transport-type to metadata if provided
+        (let* ((name (maps:get 'name opts 'undefined))
+               (transport-type (maps:get 'transport-type opts 'undefined))
+               (metadata-map (cond
+                               ;; Both name and transport-type provided
+                               ((andalso (=/= name 'undefined)
+                                         (=/= transport-type 'undefined))
+                                (map 'name name 'transport-type transport-type))
+                               ;; Only name provided
+                               ((=/= name 'undefined)
+                                (map 'name name))
+                               ;; Only transport-type provided
+                               ((=/= transport-type 'undefined)
+                                (map 'transport-type transport-type))
+                               ;; Neither provided
+                               ('true 'undefined))))
+          (case metadata-map
+            ('undefined 'ok)
+            (_ (xrepl-store:set-metadata session-id metadata-map))))
         (tuple 'ok session-id))
        (`#(error ,reason)
         ;; Clean up store entry

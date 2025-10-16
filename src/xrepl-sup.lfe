@@ -36,6 +36,7 @@
 ;;; -----------------------
 
 (defun init (_args)
+  ;; No global history initialization - each session manages its own history table
   (let ((children (list (store-child)
                         (session-sup-child)
                         (net-sup-child)

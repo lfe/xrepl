@@ -94,22 +94,32 @@
 
   Args:
     opts: Options map with keys:
-      - banner: Show banner (boolean, default true)
+      - banner?: Show banner (boolean, default true)
       - history_enabled: Enable history (boolean, default true)
       - history_file: History file path (string/binary)
 
   Returns:
     PID of REPL process"
-  (application:ensure_all_started 'xrepl)
   (let ((merged-opts (maps:merge (default-opts) opts)))
+    ;; Set history options in application environment before starting
+    (application:set_env 'xrepl 'history_enabled
+                        (maps:get 'history_enabled merged-opts 'true))
+    (application:set_env 'xrepl 'history_file
+                        (maps:get 'history_file merged-opts
+                                 (xrepl-history:default-file)))
+
+    ;; Start the application (which will initialize history)
+    (application:ensure_all_started 'xrepl)
+
     ;; Display banner if requested
-    (let ((banner? (maps:get 'banner merged-opts 'true)))
+    (let ((banner? (maps:get 'banner? merged-opts 'true)))
       (if banner? (write (banner))))
+
     ;; Start REPL loop in new process
     (spawn (lambda ()
-             ;; Initialize readline and history in the REPL process
+             ;; Initialize readline in the REPL process
+             ;; (History is initialized in xrepl-app:start/2)
              (init-readline)
-             (xrepl-history:init merged-opts)
              (repl-loop merged-opts)))))
 
 (defun pid ()
@@ -165,7 +175,7 @@
   (let ((current-session (xrepl-session-manager:get-current)))
     (case current-session
       ('no-session
-       ;; No current session, create one
+       ;; No current session, create one (will have stdio transport)
        (let ((new-session (get-or-create-default-session opts)))
          (xrepl-session-manager:set-current new-session)
          (repl-loop-with-session new-session opts)))
@@ -195,8 +205,8 @@
 
   Prints the result or error.
   Handles special return values like #(switch session-id) for automatic switching."
-  ;; Add to history (convert form to string)
-  (xrepl-history:add (format-form form))
+  ;; History is now tracked in the session evaluator (xrepl-session.lfe)
+  ;; to ensure it works for both standalone and network modes
 
   ;; Create protocol message for eval operation
   (let ((message (map 'op 'eval 'code form)))
@@ -306,8 +316,9 @@
     Session ID"
   (case (xrepl-session-manager:list)
     ('()
-     ;; No sessions exist, create default
-     (case (xrepl-session-manager:create (map 'name "default"))
+     ;; No sessions exist, create default with stdio transport
+     (case (xrepl-session-manager:create (map 'name "default"
+                                              'transport-type 'stdio))
        (`#(ok ,session-id)
         session-id)
        (`#(error ,reason)

@@ -1,0 +1,49 @@
+ Transport-Aware Command Output Architecture
+
+Overview
+
+Implement a clean separation where commands return structured data, and a transport-aware output handler decides whether to write to stdio or return over the wire.
+
+Implementation Plan
+
+Phase 1: Create Output Handler Module
+
+- Create src/xrepl-output.lfe with handle-result/2 function
+- Define structured return types: #(formatted text), #(value val), #(action type data), #(error msg)
+- Handle stdio vs remote transport differently
+
+Phase 2: Refactor xrepl-commands.lfe
+
+- Change all io:format calls to io_lib:format (build strings, don't print)
+- Return #(formatted string) tuples instead of printing
+- Functions affected: sessions, new-session, switch-session, close-session, reopen-session, purge-sessions, current-session, session-info
+- Helper functions: print-session-line, print-session-details
+
+Phase 3: Update Help Functions
+
+- Modify xrepl-env.lfe help functions to return #(formatted ...) tuples
+- Update xrepl-help function to return strings instead of printing
+
+Phase 4: Wire into Evaluator
+
+- Update evaluator loop in xrepl-session.lfe to use output handler
+- Pass transport-type from environment to output handler
+- Store $transport-type in environment during creation
+
+Phase 5: Update Handler Response Formatting
+
+- Modify xrepl-handler.lfe format-value to handle structured returns
+- Ensure protocol responses properly transmit formatted output
+
+Phase 6: Testing
+
+- Test stdio transport (local REPL) - verify no behavior changes
+- Test TCP transport - verify commands now show output
+- Test all session management commands over remote connection
+
+Benefits
+
+- Clean separation: commands don't do I/O, just return data
+- Transport-agnostic commands
+- Backwards compatible for stdio
+- Structured, testable output

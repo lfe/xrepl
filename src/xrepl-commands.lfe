@@ -24,20 +24,19 @@
     current-session-id: ID of current session
 
   Returns:
-    ok"
+    #(formatted text)"
   (let ((sessions (xrepl-session-manager:list-detailed)))
-    (if (== sessions '())
-      (io:format "No sessions.~n")
-      (progn
-        (io:format "~nSessions:~n")
-        (io:format "~-40s ~-20s ~-10s ~-12s~n"
-                  (list "ID" "Name" "Running" "Last Active"))
-        (io:format "~s~n" (list (lists:duplicate 80 #\-)))
-        (lists:foreach
-          (lambda (session-data)
-            (print-session-line session-data current-session-id))
-          sessions)))
-    'ok))
+    (tuple 'formatted
+           (if (== sessions '())
+             "No sessions.\n"
+             (let* ((header (io_lib:format "\nSessions:\n~-40s ~-20s ~-10s ~-12s\n"
+                                          (list "ID" "Name" "Running" "Last Active")))
+                    (separator (io_lib:format "~s\n" (list (lists:duplicate 80 #\-))))
+                    (lines (lists:map
+                             (lambda (session-data)
+                               (format-session-line session-data current-session-id))
+                             sessions)))
+               (lists:flatten (list header separator lines)))))))
 
 (defun new-session ()
   "Create a new session without a name.
@@ -69,8 +68,8 @@
        ;; (prompt change provides feedback to user)
        (tuple 'switch session-id))
       (`#(error ,reason)
-       (io:format "Error creating session: ~p~n" (list reason))
-       (tuple 'error reason)))))
+       (tuple 'formatted
+              (lists:flatten (io_lib:format "Error creating session: ~p\n" (list reason))))))))
 
 (defun switch-session (name-or-id)
   "Switch to a different session by name or ID.
@@ -83,18 +82,17 @@
   ;; First resolve the name/id to get the actual session-id
   (case (resolve-session-id name-or-id)
     ('undefined
-     (io:format "Error: Session not found: ~s~n" (list name-or-id))
-     (tuple 'error 'session-not-found))
+     (tuple 'formatted
+            (lists:flatten (io_lib:format "Error: Session not found: ~s\n" (list name-or-id)))))
     (session-id
      ;; Now switch to it
      (case (xrepl-session-manager:switch session-id)
        ('ok
-        (io:format "Switched to session ~s~n" (list session-id))
-        ;; Return special tuple to signal REPL should switch
+        ;; Return special tuple to signal REPL should switch (prompt change provides feedback)
         (tuple 'switch session-id))
        (`#(error ,reason)
-        (io:format "Error switching session: ~p~n" (list reason))
-        (tuple 'error reason))))))
+        (tuple 'formatted
+               (lists:flatten (io_lib:format "Error switching session: ~p\n" (list reason)))))))))
 
 (defun close-session (name-or-id current-session-id)
   "Close a session by name or ID. If closing current session, switches to another.
@@ -109,8 +107,8 @@
   ;; First resolve the name/id to get the actual session-id
   (case (resolve-session-id name-or-id)
     ('undefined
-     (io:format "Error: Session not found: ~s~n" (list name-or-id))
-     'ok)
+     (tuple 'formatted
+            (lists:flatten (io_lib:format "Error: Session not found: ~s\n" (list name-or-id)))))
     (session-id
      ;; Check if trying to close the default session
      (case (xrepl-session-manager:get-info session-id)
@@ -118,10 +116,8 @@
         (let* ((metadata (maps:get 'metadata info (map)))
                (name (maps:get 'name metadata "-")))
           (if (== name "default")
-            ;; Cannot close default session (return ok to suppress error tuple)
-            (progn
-              (io:format "Error: Cannot close the default session~n")
-              'ok)
+            ;; Cannot close default session
+            (tuple 'formatted "Error: Cannot close the default session\n")
             ;; Check if we're closing the current session
             (let ((is-current? (== session-id current-session-id)))
               ;; If closing current session, signal switch BEFORE closing
@@ -132,13 +128,13 @@
                   (tuple 'switch-to-other))
                 ;; Not current session, just close it
                 (case (xrepl-session-manager:close session-id)
-                  ('ok 'ok)
+                  ('ok (tuple 'formatted ""))  ;; Silent success
                   (`#(error ,reason)
-                   (io:format "Error closing session: ~p~n" (list reason))
-                   'ok)))))))
+                   (tuple 'formatted
+                          (lists:flatten (io_lib:format "Error closing session: ~p\n" (list reason)))))))))))
        (`#(error ,_)
-        (io:format "Error: Session not found: ~s~n" (list name-or-id))
-        'ok)))))
+        (tuple 'formatted
+               (lists:flatten (io_lib:format "Error: Session not found: ~s\n" (list name-or-id)))))))))
 
 (defun reopen-session (name-or-id)
   "Reopen a closed session by name or ID and switch to it.
@@ -157,30 +153,30 @@
     ;; First resolve the name/id to get the actual session-id
     (case (resolve-session-id name-str)
       ('undefined
-       (io:format "Error: Session not found: ~s~n" (list name-str))
-       'ok)
+       (tuple 'formatted
+              (lists:flatten (io_lib:format "Error: Session not found: ~s\n" (list name-str)))))
       (session-id
        (case (xrepl-session-manager:reopen session-id)
          ('ok
           ;; Successfully reopened, now switch to it
           (tuple 'switch session-id))
          (`#(error already-running)
-          (io:format "Error: Session ~s is already running~n" (list name-str))
-          'ok)
+          (tuple 'formatted
+                 (lists:flatten (io_lib:format "Error: Session ~s is already running\n" (list name-str)))))
          (`#(error ,reason)
-          (io:format "Error reopening session: ~p~n" (list reason))
-          'ok))))))
+          (tuple 'formatted
+                 (lists:flatten (io_lib:format "Error reopening session: ~p\n" (list reason))))))))))
 
 (defun purge-sessions ()
   "Purge all stopped sessions (permanently delete them).
 
   Returns:
-    ok"
+    #(formatted text)"
   (let ((count (xrepl-session-manager:purge-stopped)))
-    (if (== count 0)
-      (io:format "No stopped sessions to purge.~n")
-      (io:format "Purged ~w stopped session(s).~n" (list count)))
-    'ok))
+    (tuple 'formatted
+           (if (== count 0)
+             "No stopped sessions to purge.\n"
+             (lists:flatten (io_lib:format "Purged ~w stopped session(s).\n" (list count)))))))
 
 (defun current-session (session-id)
   "Show current session.
@@ -189,16 +185,16 @@
     session-id: Session identifier
 
   Returns:
-    session-id"
+    #(formatted text)"
   (case (xrepl-session-manager:get-info session-id)
     (`#(ok ,info)
-     (io:format "Current session: ~s~n" (list session-id))
-     (print-session-details info)
-     session-id)
+     (let ((header (io_lib:format "Current session: ~s\n" (list session-id)))
+           (details (format-session-details info)))
+       (tuple 'formatted (lists:flatten (list header details)))))
     (`#(error ,_)
-     (io:format "Current session: ~s (info unavailable)~n"
-               (list session-id))
-     session-id)))
+     (tuple 'formatted
+            (lists:flatten (io_lib:format "Current session: ~s (info unavailable)\n"
+                                         (list session-id)))))))
 
 (defun session-info (name-or-id)
   "Show detailed session information by name or ID.
@@ -207,20 +203,19 @@
     name-or-id: Session name or ID
 
   Returns:
-    ok | #(error reason)"
+    #(formatted text)"
   ;; First resolve the name/id to get the actual session-id
   (case (resolve-session-id name-or-id)
     ('undefined
-     (io:format "Error: Session not found: ~s~n" (list name-or-id))
-     (tuple 'error 'session-not-found))
+     (tuple 'formatted
+            (lists:flatten (io_lib:format "Error: Session not found: ~s\n" (list name-or-id)))))
     (session-id
      (case (xrepl-session-manager:get-info session-id)
        (`#(ok ,info)
-        (print-session-details info)
-        'ok)
+        (tuple 'formatted (format-session-details info)))
        (`#(error ,reason)
-        (io:format "Error getting session info: ~p~n" (list reason))
-        (tuple 'error reason))))))
+        (tuple 'formatted
+               (lists:flatten (io_lib:format "Error getting session info: ~p\n" (list reason)))))))))
 
 ;;; ----------------
 ;;; Private helpers
@@ -259,12 +254,15 @@
        ;; It's a valid hex string, assume it's an ID
        name-str))))
 
-(defun print-session-line (session-data current-session-id)
-  "Print one line of session info.
+(defun format-session-line (session-data current-session-id)
+  "Format one line of session info.
 
   Args:
     session-data: Session data map
-    current-session-id: ID of current session"
+    current-session-id: ID of current session
+
+  Returns:
+    Formatted string"
   (let* ((id (maps:get 'id session-data))
          (metadata (maps:get 'metadata session-data (map)))
          (name (maps:get 'name metadata "-"))
@@ -282,30 +280,34 @@
     (let ((display-id (if (> (length id) 36)
                         (++ (lists:sublist id 33) "...")
                         id)))
-      (io:format "~-40s ~-20s ~-10s ~-12s~n"
-                (list display-id display-name active-str time-str)))))
+      (io_lib:format "~-40s ~-20s ~-10s ~-12s\n"
+                     (list display-id display-name active-str time-str)))))
 
-(defun print-session-details (info)
-  "Print detailed session information.
+(defun format-session-details (info)
+  "Format detailed session information.
 
   Args:
-    info: Session info map"
-  (io:format "~nSession Details:~n")
-  (io:format "  ID:           ~s~n" (list (maps:get 'id info)))
-  (let ((metadata (maps:get 'metadata info (map))))
-    (io:format "  Name:         ~s~n"
-              (list (maps:get 'name metadata "-"))))
-  (io:format "  Running:      ~s~n"
-            (list (if (maps:get 'active? info 'false) "yes" "no")))
-  (io:format "  Created:      ~s~n"
-            (list (format-full-timestamp (maps:get 'created-at info 0))))
-  (io:format "  Last Active:  ~s~n"
-            (list (format-full-timestamp (maps:get 'last-active info 0))))
-  (io:format "  Timeout:      ~w ms~n" (list (maps:get 'timeout info 3600000)))
-  (let ((metadata (maps:get 'metadata info (map))))
-    (if (> (map_size metadata) 1)  ;; More than just 'name'
-      (io:format "  Metadata:     ~p~n" (list metadata))
-      'ok)))
+    info: Session info map
+
+  Returns:
+    Formatted string"
+  (let* ((header (io_lib:format "\nSession Details:\n" '()))
+         (id-line (io_lib:format "  ID:           ~s\n" (list (maps:get 'id info))))
+         (metadata (maps:get 'metadata info (map)))
+         (name-line (io_lib:format "  Name:         ~s\n"
+                                  (list (maps:get 'name metadata "-"))))
+         (running-line (io_lib:format "  Running:      ~s\n"
+                                     (list (if (maps:get 'active? info 'false) "yes" "no"))))
+         (created-line (io_lib:format "  Created:      ~s\n"
+                                     (list (format-full-timestamp (maps:get 'created-at info 0)))))
+         (active-line (io_lib:format "  Last Active:  ~s\n"
+                                    (list (format-full-timestamp (maps:get 'last-active info 0)))))
+         (timeout-line (io_lib:format "  Timeout:      ~w ms\n" (list (maps:get 'timeout info 3600000))))
+         (metadata-line (if (> (map_size metadata) 1)  ;; More than just 'name'
+                          (io_lib:format "  Metadata:     ~p\n" (list metadata))
+                          "")))
+    (lists:flatten (list header id-line name-line running-line created-line
+                        active-line timeout-line metadata-line))))
 
 (defun format-timestamp (unix-seconds)
   "Format unix timestamp as relative time.

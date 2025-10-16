@@ -4,20 +4,22 @@
   Manages LFE environments including variable bindings, history,
   and shell functions/macros."
   (export
-   (new 0) (new 2)                    ;; Create new environment
+   (new 0) (new 2) (new 3)            ;; Create new environment
    (add-shell-vars 1)                 ;; Add shell variables (+, *, -, etc.)
    (update-shell-vars 3)              ;; Update after evaluation
-   (add-shell-functions 1)            ;; Add shell functions
-   (add-shell-macros 1)               ;; Add shell macros
+   (add-shell-functions 1)            ;; Add shell functions (local mode)
+   (add-remote-shell-functions 1)     ;; Add shell functions (remote mode)
+   (add-shell-macros 1)               ;; Add shell macros (local mode)
+   (add-remote-shell-macros 1)        ;; Add shell macros (remote mode)
    (get-binding 2)                    ;; Get variable binding
    (add-binding 3)                    ;; Add variable binding
    (get-bindings 1)                   ;; Get all variable bindings
-   (xrepl-help 0)                     ;; Display xrepl help
-   (help-text 0)                      ;; Get combined help text
+   (xrepl-help 0) (xrepl-help 1)      ;; Display xrepl help
+   (help-text 0) (help-text 1)        ;; Get combined help text
    (lfe-help-text 0)                  ;; Get LFE help text
    (xrepl-help-text 0)                ;; Get xrepl-specific help text
    (remote-help-text 0)               ;; Get remote client help text
-   (list-history 0)))                 ;; Display command history
+   (list-history 1)))                 ;; Display command history
 
 ;;; ----------------
 ;;; Core functions
@@ -36,11 +38,27 @@
 
   Returns:
     A complete LFE environment with shell functions, macros, and variables"
+  (new script-name script-args 'false))
+
+(defun new (script-name script-args remote?)
+  "Create environment with script-name, script-args, and remote flag.
+
+  Args:
+    script-name: Name of the script (or 'lfe' for interactive)
+    script-args: List of script arguments
+    remote?: Boolean indicating if this is a remote session
+
+  Returns:
+    A complete LFE environment with appropriate shell functions/macros"
   (let* ((env0 (lfe_env:new))
          (env1 (lfe_env:add_vbinding 'script-name script-name env0))
          (env2 (lfe_env:add_vbinding 'script-args script-args env1))
-         (env3 (add-shell-functions env2))
-         (env4 (add-shell-macros env3))
+         (env3 (if remote?
+                 (add-remote-shell-functions env2)
+                 (add-shell-functions env2)))
+         (env4 (if remote?
+                 (add-remote-shell-macros env3)
+                 (add-shell-macros env3)))
          (env5 (add-shell-vars env4)))
     env5))
 
@@ -175,10 +193,10 @@
           (tuple 'uptime 0 '(lambda () (: lfe_xrepl uptime)))
 
           ;; history/0 - show command history
-          (tuple 'history 0 '(lambda () (xrepl-env:list-history)))
+          (tuple 'history 0 '(lambda () (xrepl-env:list-history $session-id)))
 
           ;; clear-history/0 - clear command history
-          (tuple 'clear-history 0 '(lambda () (xrepl-history:clear) 'ok))
+          (tuple 'clear-history 0 '(lambda () (xrepl-history:clear $session-id) 'ok))
 
           ;; Session management functions
           ;; sessions/0 - list all sessions
@@ -216,19 +234,111 @@
      env
      functions)))
 
-(defun list-history ()
-  "Display command history.
+(defun add-remote-shell-functions (env)
+  "Add remote-safe shell functions to the environment.
+
+  Uses xrepl-shell-fns implementations that return strings instead
+  of writing directly to I/O, making them safe for TCP/socket connections.
+
+  Functions:
+    cd/1, ep/1-2, epp/1-2, help/0, clear/0, p/1-2, pp/1-2,
+    pwd/0, q/0, memory/0-1, uptime/0, ls/0-1, m/0-1
+
+  Args:
+    env: LFE environment
 
   Returns:
-    ok"
-  (let ((commands (xrepl-history:get-all)))
+    Environment with remote-safe shell functions added"
+  (let ((functions
+         (list
+          ;; cd/1 - change directory (works fine remotely)
+          (tuple 'cd 1 '(lambda (d) (: lfe_xrepl cd d)))
+
+          ;; ep/1, ep/2 - print in Erlang format (remote-safe)
+          (tuple 'ep 1 '(lambda (e) (: xrepl-shell-fns ep e)))
+          (tuple 'ep 2 '(lambda (e d) (: xrepl-shell-fns ep e d)))
+
+          ;; epp/1, epp/2 - pretty print in Erlang format (remote-safe)
+          (tuple 'epp 1 '(lambda (e) (: xrepl-shell-fns epp e)))
+          (tuple 'epp 2 '(lambda (e d) (: xrepl-shell-fns epp e d)))
+
+          ;; h/0, help/0 - help (remote-safe, returns string)
+          (tuple 'h 0 '(lambda () (xrepl-env:xrepl-help 'true)))
+          (tuple 'help 0 '(lambda () (xrepl-env:xrepl-help 'true)))
+
+          ;; clear/0 - clear screen (remote-safe, returns ANSI codes)
+          (tuple 'clear 0 '(lambda () (: xrepl-shell-fns clear)))
+
+          ;; p/1-2 - print (remote-safe)
+          (tuple 'p 1 '(lambda (e) (: xrepl-shell-fns p e)))
+          (tuple 'p 2 '(lambda (e d) (: xrepl-shell-fns p e d)))
+
+          ;; pp/1-2 - pretty print (remote-safe)
+          (tuple 'pp 1 '(lambda (e) (: xrepl-shell-fns pp e)))
+          (tuple 'pp 2 '(lambda (e d) (: xrepl-shell-fns pp e d)))
+
+          ;; pwd/0 - print working directory (remote-safe)
+          (tuple 'pwd 0 '(lambda () (: xrepl-shell-fns pwd)))
+
+          ;; q/0, quit/0, exit/0 - quit (works fine remotely)
+          (tuple 'q 0 '(lambda () (: lfe_xrepl exit)))
+          (tuple 'quit 0 '(lambda () (: lfe_xrepl exit)))
+          (tuple 'exit 0 '(lambda () (: lfe_xrepl exit)))
+
+          ;; memory/0-1 - memory statistics (works fine remotely)
+          (tuple 'memory 0 '(lambda () (: lfe_xrepl memory)))
+          (tuple 'memory 1 '(lambda (t) (: lfe_xrepl memory t)))
+
+          ;; uptime/0 - system uptime (remote-safe)
+          (tuple 'uptime 0 '(lambda () (: xrepl-shell-fns uptime)))
+
+          ;; history/0 - show command history
+          (tuple 'history 0 '(lambda () (xrepl-env:list-history $session-id)))
+
+          ;; clear-history/0 - clear command history
+          (tuple 'clear-history 0 '(lambda () (xrepl-history:clear $session-id) 'ok))
+
+          ;; Session management functions
+          (tuple 'sessions 0 '(lambda () (xrepl-commands:sessions $session-id)))
+          (tuple 'new-session 0 '(lambda () (xrepl-commands:new-session)))
+          (tuple 'new-session 1 '(lambda (name) (xrepl-commands:new-session name)))
+          (tuple 'switch-session 1 '(lambda (id) (xrepl-commands:switch-session id)))
+          (tuple 'close-session 1 '(lambda (id) (xrepl-commands:close-session id $session-id)))
+          (tuple 'reopen-session 1 '(lambda (id) (xrepl-commands:reopen-session id)))
+          (tuple 'purge-sessions 0 '(lambda () (xrepl-commands:purge-sessions)))
+          (tuple 'current-session 0 '(lambda () (xrepl-commands:current-session $session-id)))
+          (tuple 'session-info 1 '(lambda (id) (xrepl-commands:session-info id))))))
+    ;; Add all functions to environment
     (lists:foldl
-     (lambda (cmd idx)
-       (io:format "~4w  ~s~n" (list idx cmd))
-       (+ idx 1))
-     1
-     commands))
-  'ok)
+     (lambda (func-def e)
+       (case func-def
+         (`#(,name ,arity ,def)
+          (lfe_eval:add_dynamic_func name arity def e))))
+     env
+     functions)))
+
+(defun list-history (session-id)
+  "Display command history.
+
+  Args:
+    session-id: Session identifier
+
+  Returns:
+    #(formatted text)"
+  (let ((commands (xrepl-history:get-all session-id)))
+    (if (== commands '())
+      (tuple 'formatted "No history available.\n")
+      (tuple 'formatted
+             (lists:flatten
+              (lists:reverse
+               (element 1
+                        (lists:foldl
+                         (lambda (cmd acc)
+                           (let ((`#(,lines ,idx) acc))
+                             (tuple (cons (io_lib:format "~4w  ~s\n" (list idx cmd)) lines)
+                                    (+ idx 1))))
+                         (tuple '() 1)
+                         commands))))))))
 
 (defun lfe-help-text ()
   "Get LFE help text as a string.
@@ -336,20 +446,45 @@
      "  - History is stored on the server\n\n"))
 
 (defun help-text ()
-  "Get complete help text combining LFE and xrepl help.
+  "Get complete help text combining LFE and xrepl help (local mode).
 
   Returns:
     IOlist containing the complete help text"
-  (list (lfe-help-text) (xrepl-help-text) (remote-help-text)))
+  (help-text 'false))
+
+(defun help-text (remote?)
+  "Get complete help text, different for remote vs local.
+
+  Args:
+    remote?: Boolean indicating if this is a remote session
+
+  Returns:
+    IOlist containing the complete help text"
+  (if remote?
+    (xrepl-help-remote:help-text)
+    (list (lfe-help-text) (xrepl-help-text) (remote-help-text))))
 
 (defun xrepl-help ()
   "Display xrepl help with session management commands.
 
   Returns:
-    Help text as iolist (for remote clients) or ok after printing (for local)"
-  ;; Get the complete help text as an iolist and return it
-  ;; The transport layer will handle whether to print locally or send over network
-  (help-text))
+    #(formatted text)"
+  (xrepl-help 'false))
+
+(defun xrepl-help (remote?)
+  "Display xrepl help, with different content for remote vs local.
+
+  Args:
+    remote?: Boolean indicating if this is a remote session
+
+  Returns:
+    #(formatted text)"
+  (tuple 'formatted
+         (binary_to_list
+          (iolist_to_binary
+           (if remote?
+             (xrepl-help-remote:help-text)
+             (help-text))))))
 
 (defun add-shell-macros (env)
   "Add shell macros to the environment.
@@ -410,6 +545,41 @@
                               (args $ENV
                                (backquote (error (tuple undefined_func
                                                         (tuple describe (length args)))))))))))
+    ;; Add all macros to environment
+    (lfe_env:add_mbindings macros env)))
+
+(defun add-remote-shell-macros (env)
+  "Add remote-safe shell macros to the environment.
+
+  Uses xrepl-shell-fns implementations for commands that need
+  to return strings instead of writing to I/O.
+
+  Macros:
+    ls, m - remote-safe versions
+
+  Args:
+    env: LFE environment
+
+  Returns:
+    Environment with remote-safe shell macros added"
+  (let ((macros
+         (list
+          ;; ls - list files (remote-safe)
+          (tuple 'ls '(match-lambda
+                        (() $ENV
+                         (backquote (: xrepl-shell-fns ls)))
+                        ((list path) $ENV
+                         (backquote (: xrepl-shell-fns ls (quote (comma path)))))
+                        (args $ENV
+                         (backquote (error (tuple undefined_func
+                                                  (tuple ls (length args))))))))
+
+          ;; m - module information (remote-safe)
+          (tuple 'm '(match-lambda
+                       (() $ENV
+                        (backquote (: xrepl-shell-fns m)))
+                       (ms $ENV
+                        (backquote (: xrepl-shell-fns m (list (comma-at ms))))))))))
     ;; Add all macros to environment
     (lfe_env:add_mbindings macros env)))
 

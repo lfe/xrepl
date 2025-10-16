@@ -1,0 +1,30 @@
+Implement Per-Session History
+
+1. Refactor xrepl-history module
+
+- Change all functions to accept session-id parameter
+- Use xrepl_history_<session-id> as table name
+- Update: init/2, add/2, get-all/1, clear/1
+
+2. Update xrepl-session module
+
+- Initialize history table in session init/1
+- Pass session ID to all xrepl-history calls
+- Table auto-deleted when session terminates
+
+3. Update xrepl-env module
+
+- Pass $session-id to xrepl-history functions
+- list-history/0 uses session context
+
+4. Remove global history from xrepl-sup
+
+- No longer initialize global table
+- Each session manages its own
+
+5. Add client history upload (optional enhancement)
+
+- New protocol operation: upload_history
+- Client reads local file on connect
+- Sends commands to populate session table
+- Handler calls xrepl-history:add-bulk/2

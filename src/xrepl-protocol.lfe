@@ -9,12 +9,13 @@
    (init 3)))
 
 (defrecord protocol-state
-  ref           ;; Ranch listener reference
-  transport     ;; Ranch transport module (ranch_tcp)
-  socket        ;; Connected socket
-  session-id    ;; Associated session ID
-  authenticated ;; Authentication status
-  buffer)       ;; Message buffer for partial reads
+  ref            ;; Ranch listener reference
+  transport      ;; Ranch transport module (ranch_tcp)
+  socket         ;; Connected socket
+  session-id     ;; Associated session ID
+  authenticated  ;; Authentication status
+  transport-type ;; Transport type ('tcp or 'unix)
+  buffer)        ;; Message buffer for partial reads
 
 (defun start_link (ref transport-mod opts)
   "Start protocol handler (called by Ranch).
@@ -41,12 +42,14 @@
             (is-unix? (case peername
                         (`#(ok #(local ,_)) 'true)
                         (_ 'false)))
+            (transport-type (if is-unix? 'unix 'tcp))
             (state (make-protocol-state
                      ref ref
                      transport transport-mod
                      socket socket
                      session-id 'undefined
                      authenticated is-unix?  ;; UNIX sockets pre-authenticated
+                     transport-type transport-type
                      buffer #"")))
        (message-loop state)))
 
@@ -127,9 +130,10 @@
 (defun handle-message (message state)
   "Handle authenticated message by delegating to xrepl-handler."
   (let ((session-id (protocol-state-session-id state))
-        (authenticated? (protocol-state-authenticated state)))
-    ;; Call unified handler with binary keys (no conversion needed)
-    (case (xrepl-handler:handle-message message session-id authenticated?)
+        (authenticated? (protocol-state-authenticated state))
+        (transport-type (protocol-state-transport-type state)))
+    ;; Call unified handler with transport-type
+    (case (xrepl-handler:handle-message message session-id authenticated? transport-type)
       (`#(,response ,new-session-id)
        ;; Send response and update state with new session-id
        (send-response message response state)

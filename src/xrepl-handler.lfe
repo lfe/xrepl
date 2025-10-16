@@ -6,11 +6,13 @@
   and local REPL use this unified handler."
   (export
    (handle-message 2)
-   (handle-message 3)))
+   (handle-message 3)
+   (handle-message 4)))
 
 (defrecord handler-context
   session-id      ;; Current session ID (or 'undefined)
-  authenticated)  ;; Authentication status (boolean)
+  authenticated   ;; Authentication status (boolean)
+  transport-type) ;; Transport type ('stdio, 'tcp, 'unix, or 'undefined)
 
 ;;; ----------------
 ;;; Public API
@@ -36,6 +38,7 @@
       ((binary "describe") (handle-describe message context))
       ((binary "ping") (handle-ping message context))
       ((binary "load_file") (handle-load-file message context))
+      ((binary "upload_history") (handle-upload-history message context))
       ;; Also support atom keys for local (stdio) transport
       ('eval (handle-eval message context))
       ('clone (handle-clone message context))
@@ -44,6 +47,7 @@
       ('describe (handle-describe message context))
       ('ping (handle-ping message context))
       ('load_file (handle-load-file message context))
+      ('upload_history (handle-upload-history message context))
       (_
        (tuple (make-error-response 'unknown-op
                 (++ "Unknown operation: " (format-op op)))
@@ -61,7 +65,26 @@
     #(response new-session-id)"
   (let* ((context (make-handler-context
                     session-id session-id
-                    authenticated authenticated?))
+                    authenticated authenticated?
+                    transport-type 'undefined))  ;; Will be inferred from session
+         ((tuple response new-context) (handle-message message context)))
+    (tuple response (handler-context-session-id new-context))))
+
+(defun handle-message (message session-id authenticated? transport-type)
+  "Convenience wrapper with transport-type.
+
+  Args:
+    message: Message map
+    session-id: Current session ID (or 'undefined)
+    authenticated?: Boolean authentication status
+    transport-type: Transport type ('stdio, 'tcp, 'unix)
+
+  Returns:
+    #(response new-session-id)"
+  (let* ((context (make-handler-context
+                    session-id session-id
+                    authenticated authenticated?
+                    transport-type transport-type))
          ((tuple response new-context) (handle-message message context)))
     (tuple response (handler-context-session-id new-context))))
 
@@ -72,7 +95,8 @@
 (defun handle-eval (message context)
   "Handle code evaluation request."
   (let ((code (get-key message "code"))
-        (session-id (get-or-create-session context message)))
+        (session-id (get-or-create-session context message))
+        (transport-type (handler-context-transport-type context)))
     (case (xrepl-session:eval session-id (binary-to-code code))
       (`#(ok ,value)
        ;; Check if value is a special command tuple before formatting
@@ -87,7 +111,16 @@
           (tuple (map 'status 'done
                       'action 'switch-to-other)
                  context))
-         ;; Normal value - format as string for transmission
+         ;; Formatted output (from commands)
+         (`#(formatted ,text)
+          (let ((value-str (if (is_binary text)
+                             (binary_to_list text)
+                             text)))
+            (tuple (map 'status 'done
+                        'value (unicode:characters_to_binary value-str)
+                        'session (list_to_binary session-id))
+                   (set-handler-context-session-id context session-id))))
+         ;; Normal value - pass through output handler
          (_
           (let ((value-str (format-value value)))
             (tuple (map 'status 'done
@@ -100,14 +133,18 @@
 
 (defun handle-clone (message context)
   "Handle session clone request."
-  (case (xrepl-session-manager:create (map))
-    (`#(ok ,new-session-id)
-     (tuple (map 'status 'done
-                 'new_session (list_to_binary new-session-id))
-            context))
-    (`#(error ,reason)
-     (tuple (make-error-response 'clone-failed reason)
-            context))))
+  (let* ((transport-type (handler-context-transport-type context))
+         (opts (if (== transport-type 'undefined)
+                 (map)
+                 (map 'transport-type transport-type))))
+    (case (xrepl-session-manager:create opts)
+      (`#(ok ,new-session-id)
+       (tuple (map 'status 'done
+                   'new_session (list_to_binary new-session-id))
+              context))
+      (`#(error ,reason)
+       (tuple (make-error-response 'clone-failed reason)
+              context)))))
 
 (defun handle-close (message context)
   "Handle session close request."
@@ -136,7 +173,7 @@
                              'lfe (list_to_binary (xrepl-vsn:get 'lfe))
                              'erlang (list_to_binary
                                        (erlang:system_info 'otp_release)))
-              'ops (list 'eval 'clone 'close 'ls_sessions 'describe 'ping 'load_file)
+              'ops (list 'eval 'clone 'close 'ls_sessions 'describe 'ping 'load_file 'upload_history)
               'transports (list 'tcp 'unix 'stdio))
          context))
 
@@ -151,6 +188,40 @@
   "Handle load file request (placeholder for future implementation)."
   (tuple (make-error-response 'not-implemented "load_file not yet implemented")
          context))
+
+(defun handle-upload-history (message context)
+  "Handle client history upload request.
+
+  Client sends a list of history commands to populate the server-side
+  session history. This allows clients to continue their local history
+  when connecting to a remote server.
+
+  Message format:
+    {\"op\": \"upload_history\", \"commands\": [\"cmd1\", \"cmd2\", ...]}"
+  (let ((commands (get-key message "commands"))
+        (session-id (get-or-create-session context message)))
+    (case session-id
+      ('undefined
+       (tuple (make-error-response 'no-session "No session available for history upload")
+              context))
+      (_
+       (case commands
+         ('undefined
+          (tuple (make-error-response 'missing-commands "No commands provided")
+                 context))
+         (_
+          ;; Convert binary commands to strings and upload
+          (let ((cmd-strings (lists:map
+                              (lambda (cmd)
+                                (if (is_binary cmd)
+                                  (binary_to_list cmd)
+                                  cmd))
+                              commands)))
+            (xrepl-history:add-bulk session-id cmd-strings)
+            (tuple (map 'status 'done
+                        'uploaded (length cmd-strings)
+                        'session (list_to_binary session-id))
+                   (set-handler-context-session-id context session-id)))))))))
 
 ;;; ----------------
 ;;; Helper functions
@@ -178,17 +249,25 @@
      ;; Try to get session from message
      (case (get-key message "session")
        ('undefined
-        ;; Create new session
-        (case (xrepl-session-manager:create (map))
-          (`#(ok ,session-id) session-id)
-          (`#(error ,_)
-           ;; Fall back to default
-           (case (xrepl-session-manager:find-default)
-             ('undefined
-              (let (((tuple 'ok sid) (xrepl-session-manager:create
-                                       (map 'name "default"))))
-                sid))
-             (default-id default-id)))))
+        ;; Create new session with transport-type
+        (let* ((transport-type (handler-context-transport-type context))
+               (opts (if (== transport-type 'undefined)
+                       (map)
+                       (map 'transport-type transport-type))))
+          (case (xrepl-session-manager:create opts)
+            (`#(ok ,session-id) session-id)
+            (`#(error ,_)
+             ;; Fall back to default
+             (case (xrepl-session-manager:find-default)
+               ('undefined
+                (let ((default-opts (if (== transport-type 'undefined)
+                                      (map 'name "default")
+                                      (map 'name "default"
+                                           'transport-type transport-type))))
+                  (case (xrepl-session-manager:create default-opts)
+                    (`#(ok ,sid) sid)
+                    (`#(error ,_) 'undefined))))
+               (default-id default-id))))))
        (session-id (binary_to_list session-id))))
     (existing existing)))
 

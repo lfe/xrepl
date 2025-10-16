@@ -16,6 +16,8 @@
 
   (logger:set_application_level 'xrepl 'all)
   (logger:info "Starting xrepl application ...")
+
+  ;; Start supervisor first
   (case (xrepl-sup:start_link)
     (`#(ok ,pid)
      ;; Start network listeners if configured

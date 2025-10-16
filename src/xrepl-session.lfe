@@ -111,11 +111,21 @@
 (defun init (session-id)
   "Initialize a session, restoring state if available."
   (process_flag 'trap_exit 'true)
-  (let* ((base-env (xrepl-env:new))
+
+  ;; Initialize session-specific history
+  (let ((history-opts (map 'history_enabled (application:get_env 'xrepl 'history_enabled 'true)
+                           'history_file (application:get_env 'xrepl 'history_file
+                                                              (xrepl-history:default-file)))))
+    (xrepl-history:init session-id history-opts))
+
+  ;; Determine if this is a remote session from metadata
+  (let* ((transport-type (get-transport-type session-id))
+         (remote? (is-remote-transport? transport-type))
+         (base-env (xrepl-env:new "" '() remote?))
          (restored-env (restore-env session-id base-env))
          ;; Inject session-id into environment for commands to access
          (env-with-id (lfe_env:add_vbinding '$session-id session-id restored-env))
-         (evaluator (start-evaluator env-with-id))
+         (evaluator (start-evaluator session-id env-with-id))
          (now (erlang:monotonic_time 'millisecond)))
     (tuple 'ok (make-session-state id session-id
                                    env env-with-id
@@ -217,7 +227,8 @@
      ('true
       ;; Restart evaluator
       (io:format "Evaluator crashed (~p), restarting...~n" (list reason))
-      (let ((new-evaluator (start-evaluator (session-state-env state))))
+      (let* ((session-id (session-state-id state))
+             (new-evaluator (start-evaluator session-id (session-state-env state))))
         ;; If there was a pending evaluation, report error
         (case (session-state-eval-pending state)
           ('undefined 'ok)
@@ -286,38 +297,55 @@
 ;;; Evaluator process
 ;;; ----------------
 
-(defun start-evaluator (initial-env)
+(defun start-evaluator (session-id initial-env)
   "Start an evaluator process.
 
   Args:
+    session-id: Session identifier
     initial-env: Initial LFE environment
 
   Returns:
     Evaluator PID"
-  (spawn_link (lambda () (evaluator-loop initial-env))))
+  (spawn_link (lambda () (evaluator-loop session-id initial-env))))
 
-(defun evaluator-loop (env)
+(defun evaluator-loop (session-id env)
   "Main evaluator loop.
 
   Receives eval requests and sends back results."
   (receive
     (`#(eval ,form ,reply-to)
+     ;; Add command to session-specific history before evaluation
+     (xrepl-history:add session-id (format-form form))
      (try
        (case (xrepl-eval:eval-form form env)
          (`#(ok ,value ,new-env)
           ;; Update shell variables
           (let ((final-env (xrepl-env:update-shell-vars form value new-env)))
             (! reply-to (tuple 'eval-result value final-env))
-            (evaluator-loop final-env)))
+            (evaluator-loop session-id final-env)))
          (`#(error ,reason)
           ;; Evaluation error
           (! reply-to (tuple 'eval-error 'error reason '()))
-          (evaluator-loop env)))
+          (evaluator-loop session-id env)))
        (catch
          ((tuple class reason stack)
           ;; Exception during evaluation
           (! reply-to (tuple 'eval-error class reason stack))
-          (evaluator-loop env)))))))
+          (evaluator-loop session-id env)))))))
+
+;;; ----------------
+;;; Helper functions
+;;; ----------------
+
+(defun format-form (form)
+  "Convert form to string for history.
+
+  Args:
+    form: LFE form
+
+  Returns:
+    String representation"
+  (lfe_io:print1 form))
 
 ;;; ----------------
 ;;; State persistence helpers
@@ -414,3 +442,35 @@
            (xrepl-env:add-binding name value env))))
       base-env
       bindings)))
+
+;;; ----------------
+;;; Transport detection helpers
+;;; ----------------
+
+(defun get-transport-type (session-id)
+  "Get transport type from session metadata.
+
+  Args:
+    session-id: Session identifier
+
+  Returns:
+    Transport type atom ('stdio, 'tcp, 'unix) or 'stdio (default)"
+  (case (xrepl-store:get-session session-id)
+    (`#(ok ,session-data)
+     (let ((metadata (maps:get 'metadata session-data (map))))
+       (maps:get 'transport-type metadata 'stdio)))
+    (`#(error ,_)
+     ;; Default to stdio if we can't get metadata
+     'stdio)))
+
+(defun is-remote-transport? (transport-type)
+  "Determine if transport type is remote (not stdio).
+
+  Args:
+    transport-type: Transport type atom
+
+  Returns:
+    true if remote (tcp/unix), false if local (stdio)"
+  (case transport-type
+    ('stdio 'false)
+    (_ 'true)))

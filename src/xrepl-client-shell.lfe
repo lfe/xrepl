@@ -61,10 +61,13 @@
   "Initialize the shell gen_server."
   ;; Show the xrepl banner
   (io:put_chars (banner))
-  (io:format "~n\e[2mConnected to remote xrepl server\e[0m~n~n")
-  ;; Send ourselves a message to start the REPL loop
-  (gen_server:cast (self) 'prompt)
-  (tuple 'ok initial-conn))
+  (io:format "~n\e[2mConnected to remote xrepl server\e[0m~n")
+
+  ;; Upload local history to server
+  (let ((conn-with-history (upload-local-history initial-conn)))
+    ;; Send ourselves a message to start the REPL loop
+    (gen_server:cast (self) 'prompt)
+    (tuple 'ok conn-with-history)))
 
 (defun handle_call (_request _from state)
   "Handle synchronous calls."
@@ -152,6 +155,39 @@
 ;;; ----------------
 ;;; Private helpers
 ;;; ----------------
+
+(defun upload-local-history (conn)
+  "Upload local history file to server.
+
+  Reads ~/.lfe-xrepl-history and uploads commands to server's session history.
+  Silently handles errors to not disrupt connection flow.
+
+  Args:
+    conn: Client connection
+
+  Returns:
+    Updated connection"
+  (let ((history-file (xrepl-history:default-file)))
+    (case (xrepl-history:load history-file)
+      (`#(ok ,commands)
+       ;; Only upload if there are commands
+       (if (> (length commands) 0)
+         (progn
+           (io:format "\n\e[2mUploading ~p history entries...\e[0m~n" (list (length commands)))
+           (case (xrepl-client:upload-history conn commands)
+             (`#(ok ,uploaded ,new-conn)
+              (io:format "\e[2mHistory synced (~p commands)\e[0m~n~n" (list uploaded))
+              new-conn)
+             (`#(error ,reason ,new-conn)
+              (io:format "\e[2mWarning: Could not upload history: ~p\e[0m~n~n" (list reason))
+              new-conn)))
+         (progn
+           (io:nl)
+           conn)))
+      (`#(error ,_reason)
+       ;; No local history file or read error - continue without uploading
+       (io:nl)
+       conn))))
 
 (defun print-value (value)
   "Print a value to the client.
