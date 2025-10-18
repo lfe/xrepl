@@ -3,16 +3,50 @@ name: ci/cd
 on:
   workflow_dispatch:
   push:
-    branches: [ main, 'release/*' ]
+    branches: [ main, 'release/**', 'task/**', 'feature/**', 'epic/**']
+    tags: ['**']
   pull_request:
-    branches: [ main, 'release/*' ]
+    branches: [ main, 'release/**', 'task/**', 'feature/**', 'epic/**']
   # Build once a month, just to be sure things are still working
   schedule:
     - cron: "19 3 26 * *"
 
 jobs:
 
-  core-builds:
+  new-builds:
+    name: Erlang ${{ matrix.otp_version }} build
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        otp_version: ['28', '27']
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: erlef/setup-beam@v1
+      with:
+        otp-version: ${{ matrix.otp_version }}
+        rebar3-version: '3.24'
+    - name: Check rebar3 Version
+      run: rebar3 --version
+    - name: Compile
+      run: rebar3 compile
+    - name: Xref Checks
+      run: rebar3 xref
+    #- name: Dialyzer
+    #  run: rebar3 dialyzer
+    - name: Compile Tests
+      run: rebar3 as test compile
+    - name: Run Unit Tests
+      run: rebar3 as test lfe ltest -tunit
+    - name: Run System Tests
+      run: rebar3 as test lfe ltest -tsystem
+    - name: Run Integration Tests
+      run: rebar3 as test lfe ltest -tintegration
+    - name: Test Coverage
+      run: rebar3 as test do proper -c, cover -v --min_coverage=0
+
+  old-builds:
     name: Erlang ${{ matrix.otp_version }} build
     runs-on: ubuntu-latest
 
@@ -26,40 +60,21 @@ jobs:
       with:
         otp-version: ${{ matrix.otp_version }}
         rebar3-version: '3.22'
+    - name: Check rebar3 Version
+      run: rebar3 --version
     - name: Compile
       run: rebar3 compile
-    #- name: Xref Checks
-    #  run: rebar3 xref
-    #- name: Dialyzer
-    #  run: rebar3 dialyzer
-    - name: Proper Tests
-      run: rebar3 as test do compile, proper --regressions
-    - name: Run Unit Tests
-      run: rebar3 as test lfe ltest -tall
-
-  older-builds:
-    name: Erlang ${{ matrix.otp_version }} build
-    runs-on: ubuntu-20.04
-
-    strategy:
-      matrix:
-        otp_version: ['23', '22', '21']
-
-    steps:
-    - uses: actions/checkout@v4
-    - uses: erlef/setup-beam@v1
-      with:
-        otp-version: ${{ matrix.otp_version }}
-        rebar3-version: '3.15'
-    - name: Compile
-      run: rebar3 compile
-    #- name: Xref Checks
-    #  run: rebar3 xref
+    - name: Xref Checks
+      run: rebar3 xref
     #- name: Dialyzer
     #  run: rebar3 dialyzer
     - name: Compile Tests
       run: rebar3 as test compile
-    - name: Proper Tests
-      run: rebar3 as test proper --regressions
     - name: Run Unit Tests
-      run: rebar3 as test lfe ltest -tall
+      run: rebar3 as test lfe ltest -tunit
+    - name: Run System Tests
+      run: rebar3 as test lfe ltest -tsystem
+    - name: Run Integration Tests
+      run: rebar3 as test lfe ltest -tintegration
+    - name: Test Coverage
+      run: rebar3 as test do proper -c, cover -v --min_coverage=0
