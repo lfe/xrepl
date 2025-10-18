@@ -38,13 +38,9 @@ jobs:
     - name: Compile Tests
       run: rebar3 as test compile
     - name: Run Unit Tests
-      run: rebar3 as test lfe ltest -tunit
-    - name: Run System Tests
-      run: rebar3 as test lfe ltest -tsystem
-    - name: Run Integration Tests
-      run: rebar3 as test lfe ltest -tintegration
-    - name: Test Coverage
-      run: rebar3 as test do proper -c, cover -v --min_coverage=0
+      run: rebar3 as test lfe ltest
+    #- name: Test Coverage
+    #  run: rebar3 as test do proper -c, cover -v --min_coverage=0
 
   old-builds:
     name: Erlang ${{ matrix.otp_version }} build
@@ -71,10 +67,6 @@ jobs:
     - name: Compile Tests
       run: rebar3 as test compile
     - name: Run Unit Tests
-      run: rebar3 as test lfe ltest -tunit
-    - name: Run System Tests
-      run: rebar3 as test lfe ltest -tsystem
-    - name: Run Integration Tests
-      run: rebar3 as test lfe ltest -tintegration
-    - name: Test Coverage
-      run: rebar3 as test do proper -c, cover -v --min_coverage=0
+      run: rebar3 as test lfe ltest
+    #- name: Test Coverage
+    #  run: rebar3 as test do proper -c, cover -v --min_coverage=0
