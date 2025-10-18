@@ -105,7 +105,7 @@
                                          (list_to_binary token))
                                        full-msg))))
          (socket (client-connection-socket conn)))
-    (case (xrepl-msgpack:encode authed-msg)
+    (case (xrepl-protocol-msgpack:encode authed-msg)
       (`#(ok ,encoded)
        (case (gen_tcp:send socket encoded)
          ('ok (tuple 'ok msg-id (inc-msg-counter conn)))
@@ -118,7 +118,7 @@
   (let ((socket (client-connection-socket conn)))
     (case (gen_tcp:recv socket 0 timeout)
       (`#(ok ,data)
-       (xrepl-msgpack:decode data))
+       (xrepl-protocol-msgpack:decode data))
       (`#(error ,reason)
        (tuple 'error reason)))))
 

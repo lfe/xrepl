@@ -217,8 +217,8 @@
      ;; Create protocol message for eval operation
      (let ((message (map 'op 'eval 'code form)))
     (try
-      ;; Call unified protocol handler
-      (case (xrepl-handler:handle-message message session-id 'true)
+      ;; Call unified protocol dispatcher
+      (case (xrepl-dispatcher:handle-message message session-id 'true)
         (`#(,response ,new-session-id)
          ;; Handle response based on status
          (case (maps:get 'status response)
@@ -383,11 +383,15 @@
       ;; Multiple sessions: show session name
       (case (get-session-name session-id)
         ('undefined
-         "\e[34mxrepl\e[1;33m> \e[0m")
+         (++ (xrepl-term-colour:apply "xrepl" #m(fg blue))
+             (xrepl-term-colour:apply "> " #m(fg bright-yellow bold true))))
         (name
-         (++ "\e[34mxrepl:\e[32m" name "\e[1;33m> \e[0m")))
+         (++ (xrepl-term-colour:apply "xrepl:" #m(fg blue))
+             (xrepl-term-colour:apply name #m(fg green))
+             (xrepl-term-colour:apply "> " #m(fg bright-yellow bold true)))))
       ;; Single session: simple prompt
-      "\e[34mxrepl\e[1;33m> \e[0m")))
+      (++ (xrepl-term-colour:apply "xrepl" #m(fg blue))
+          (xrepl-term-colour:apply "> " #m(fg bright-yellow bold true))))))
 
 (defun get-session-name (session-id)
   "Get session name or return undefined.
@@ -414,18 +418,26 @@
     (bbmustache:render bytes `#m("xrepl-version" ,(xrepl-vsn:get)
                                  "lfe-version" ,(xrepl-vsn:get 'lfe)
                                  "erlang-version" ,(erlang:system_info 'otp_release)
-                                 "red" "\e[31m"
-                                 "pnk" "\e[1;31m"
-                                 "ylw" "\e[1;33m"
-                                 "gld" "\e[33m"
-                                 "cyn" "\e[36m"
-                                 "blu" "\e[1;34m"
-                                 "dbl" "\e[34m"
-                                 "grn" "\e[32m"
-                                 "bgn" "\e[1;32m"
-                                 "gry" "\e[37m"
-                                 "wht" "\e[1;37m"
+                                 "red" ,(ansi-code 'red 'false)
+                                 "pnk" ,(ansi-code 'bright-red 'true)
+                                 "ylw" ,(ansi-code 'bright-yellow 'true)
+                                 "gld" ,(ansi-code 'yellow 'false)
+                                 "cyn" ,(ansi-code 'cyan 'false)
+                                 "blu" ,(ansi-code 'bright-blue 'true)
+                                 "dbl" ,(ansi-code 'blue 'false)
+                                 "grn" ,(ansi-code 'green 'false)
+                                 "bgn" ,(ansi-code 'bright-green 'true)
+                                 "gry" ,(ansi-code 'white 'false)
+                                 "wht" ,(ansi-code 'bright-white 'true)
                                  "end" "\e[0m"))))
+
+(defun ansi-code (colour bold?)
+  "Generate ANSI code for color with optional bold."
+  (let* ((fg-code (xrepl-term-colour:colour-to-fg-code colour))
+         (codes (if bold?
+                  (++ "1;" fg-code)
+                  fg-code)))
+    (++ "\e[" codes "m")))
 
 (defun write (string)
   (io:put_chars (erlang:whereis 'user) string))

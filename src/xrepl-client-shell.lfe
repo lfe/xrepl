@@ -61,7 +61,8 @@
   "Initialize the shell gen_server."
   ;; Show the xrepl banner
   (io:put_chars (banner))
-  (io:format "~n\e[2mConnected to remote xrepl server\e[0m~n")
+  (io:format "~n~s~n"
+    (list (xrepl-term-colour:apply "Connected to remote xrepl server" #m(fg white dim true))))
 
   ;; Upload local history to server
   (let ((conn-with-history (upload-local-history initial-conn)))
@@ -77,7 +78,8 @@
   "Handle asynchronous cast messages."
   (('prompt conn)
    ;; Display prompt and read input - this will block until user enters a line
-   (case (io:get_line "\e[34mxrepl\e[1;33m> \e[0m")
+   (case (io:get_line (++ (xrepl-term-colour:apply "xrepl" #m(fg blue))
+                          (xrepl-term-colour:apply "> " #m(fg bright-yellow bold true))))
      ('eof
       (io:format "~s" (list (xrepl-consts:disconnect-msg)))
       (xrepl-client:disconnect conn)
@@ -179,13 +181,22 @@
        ;; Only upload if there are commands
        (if (> (length commands) 0)
          (progn
-           (io:format "\n\e[2mUploading ~p history entries...\e[0m~n" (list (length commands)))
+           (io:format "\n~s~n"
+             (list (xrepl-term-colour:apply
+                     (lists:flatten (io_lib:format "Uploading ~p history entries..." (list (length commands))))
+                     #m(fg white dim true))))
            (case (xrepl-client:upload-history conn commands)
              (`#(ok ,uploaded ,new-conn)
-              (io:format "\e[2mHistory synced (~p commands)\e[0m~n~n" (list uploaded))
+              (io:format "~s~n~n"
+                (list (xrepl-term-colour:apply
+                        (lists:flatten (io_lib:format "History synced (~p commands)" (list uploaded)))
+                        #m(fg white dim true))))
               new-conn)
              (`#(error ,reason ,new-conn)
-              (io:format "\e[2mWarning: Could not upload history: ~p\e[0m~n~n" (list reason))
+              (io:format "~s~n~n"
+                (list (xrepl-term-colour:apply
+                        (lists:flatten (io_lib:format "Warning: Could not upload history: ~p" (list reason)))
+                        #m(fg white dim true))))
               new-conn)))
          (progn
            (io:nl)
@@ -297,15 +308,23 @@
     (bbmustache:render bytes (map "xrepl-version" (xrepl-vsn:get)
                                  "lfe-version" (xrepl-vsn:get 'lfe)
                                  "erlang-version" (erlang:system_info 'otp_release)
-                                 "red" "\e[31m"
-                                 "pnk" "\e[1;31m"
-                                 "ylw" "\e[1;33m"
-                                 "gld" "\e[33m"
-                                 "cyn" "\e[36m"
-                                 "blu" "\e[1;34m"
-                                 "dbl" "\e[34m"
-                                 "grn" "\e[32m"
-                                 "bgn" "\e[1;32m"
-                                 "gry" "\e[37m"
-                                 "wht" "\e[1;37m"
+                                 "red" (ansi-code 'red 'false)
+                                 "pnk" (ansi-code 'bright-red 'true)
+                                 "ylw" (ansi-code 'bright-yellow 'true)
+                                 "gld" (ansi-code 'yellow 'false)
+                                 "cyn" (ansi-code 'cyan 'false)
+                                 "blu" (ansi-code 'bright-blue 'true)
+                                 "dbl" (ansi-code 'blue 'false)
+                                 "grn" (ansi-code 'green 'false)
+                                 "bgn" (ansi-code 'bright-green 'true)
+                                 "gry" (ansi-code 'white 'false)
+                                 "wht" (ansi-code 'bright-white 'true)
                                  "end" "\e[0m"))))
+
+(defun ansi-code (colour bold?)
+  "Generate ANSI code for color with optional bold."
+  (let* ((fg-code (xrepl-term-colour:colour-to-fg-code colour))
+         (codes (if bold?
+                  (++ "1;" fg-code)
+                  fg-code)))
+    (++ "\e[" codes "m")))

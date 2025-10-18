@@ -1,4 +1,4 @@
-(defmodule xrepl-protocol
+(defmodule xrepl-tcp-handler
   "Ranch protocol handler for xrepl network connections.
 
   Implements ranch_protocol behavior to handle incoming
@@ -86,7 +86,7 @@
   (let ((transport (protocol-state-transport state))
         (socket (protocol-state-socket state)))
     ;; Decode message (MessagePack)
-    (case (xrepl-msgpack:decode data)
+    (case (xrepl-protocol-msgpack:decode data)
       (`#(ok ,message)
        ;; Authenticate if not yet authenticated
        (case (protocol-state-authenticated state)
@@ -128,12 +128,12 @@
         (tuple 'error (binary "Invalid token")))))))
 
 (defun handle-message (message state)
-  "Handle authenticated message by delegating to xrepl-handler."
+  "Handle authenticated message by delegating to xrepl-dispatcher."
   (let ((session-id (protocol-state-session-id state))
         (authenticated? (protocol-state-authenticated state))
         (transport-type (protocol-state-transport-type state)))
-    ;; Call unified handler with transport-type
-    (case (xrepl-handler:handle-message message session-id authenticated? transport-type)
+    ;; Call unified dispatcher with transport-type
+    (case (xrepl-dispatcher:handle-message message session-id authenticated? transport-type)
       (`#(,response ,new-session-id)
        ;; Send response and update state with new session-id
        (send-response message response state)
@@ -145,7 +145,7 @@
          (full-response (maps:put 'id msg-id response))
          (transport (protocol-state-transport state))
          (socket (protocol-state-socket state)))
-    (case (xrepl-msgpack:encode full-response)
+    (case (xrepl-protocol-msgpack:encode full-response)
       (`#(ok ,encoded)
        (call transport 'send socket encoded))
       (`#(error ,reason)

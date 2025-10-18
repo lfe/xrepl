@@ -74,7 +74,7 @@
   "Read expression from stdin and wrap in protocol message.
 
   Reads an LFE expression using xrepl-io and wraps it in an 'eval'
-  protocol message for processing by xrepl-handler.
+  protocol message for processing by xrepl-dispatcher.
 
   Args:
     transport: stdio-transport record

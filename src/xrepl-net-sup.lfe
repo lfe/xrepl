@@ -54,7 +54,7 @@
     (let ((child-spec (ranch:child_spec ref
                                         'ranch_tcp
                                         transport-opts
-                                        'xrepl-protocol
+                                        'xrepl-tcp-handler
                                         protocol-opts)))
       ;; Start as child of this supervisor
       (supervisor:start_child (SERVER) child-spec))))
@@ -89,7 +89,7 @@
     (let ((child-spec (ranch:child_spec ref
                                         'ranch_tcp
                                         transport-opts
-                                        'xrepl-protocol
+                                        'xrepl-tcp-handler
                                         protocol-opts)))
       ;; Start as child
       (case (supervisor:start_child (SERVER) child-spec)

@@ -8,8 +8,8 @@
         stdlib,
         crypto,
         ranch,
-        msgpack,
-        mnkv
+        xrepl_protocol,
+        xrepl_term
     ]},
     {env,[
         % Network configuration

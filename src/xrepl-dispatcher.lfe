@@ -1,9 +1,9 @@
-(defmodule xrepl-handler
+(defmodule xrepl-dispatcher
   "Transport-agnostic message handler for xrepl protocol.
 
   Handles all protocol operations (eval, clone, close, etc.) independent
   of transport mechanism (TCP, UNIX socket, stdio). Both network protocol
-  and local REPL use this unified handler."
+  and local REPL use this unified dispatcher."
   (export
    (handle-message 2)
    (handle-message 3)
