@@ -307,6 +307,7 @@ Local REPL + network server - appears local but network-enabled for IDE/tool int
 #### Network Features
 
 **Authentication**
+
 * **TCP connections**: Require cryptographic token authentication
 * **UNIX sockets**: Use filesystem permissions (no token needed)
 * Tokens are 64-character hex strings (256-bit security)
@@ -353,12 +354,14 @@ Disconnecting...
 #### Architecture
 
 **Server Side**
+
 * Ranch-based TCP/UNIX socket listener
 * Protocol handler per connection (supervised by Ranch)
 * MessagePack binary protocol
 * Session management (each client can have its own session)
 
 **Client Side**
+
 * Supervised client shell process
 * Automatic crash recovery without losing connection
 * Try-catch error handling for graceful degradation
@@ -367,6 +370,7 @@ Disconnecting...
 #### Security
 
 **TCP Connections**
+
 * Token authentication required
 * Tokens are 256-bit cryptographically secure random values
 * Default binding: `127.0.0.1` (localhost only)
@@ -377,6 +381,7 @@ Disconnecting...
   ```
 
 **UNIX Domain Sockets**
+
 * File permissions-based security
 * Socket files created with `0600` permissions (owner-only)
 * No token authentication needed
@@ -586,8 +591,8 @@ Copyright © 2024, The LFE Community <http://lfe.io>.
 [gh-actions-badge]: https://github.com/lfe/xrepl/actions/workflows/cicd.yml/badge.svg
 [gh-actions]: https://github.com/ORG/xrepl/actions/workflows/cicd.yml
 [lfe]: https://github.com/lfe/lfe
-[lfe-badge]: https://img.shields.io/badge/lfe-2.1-blue.svg
-[erlang-badge]: https://img.shields.io/badge/erlang-21%20to%2026-blue.svg
+[lfe-badge]: https://img.shields.io/badge/lfe-2.2-blue.svg
+[erlang-badge]: https://img.shields.io/badge/erlang-25%20to%2028-blue.svg
 [version]: https://github.com/ORG/xrepl/blob/main/.github/workflows/cicd.yml
 [github-tags]: https://github.com/ORG/xrepl/tags
 [github-tags-badge]: https://img.shields.io/github/tag/lfe/xrepl.svg
